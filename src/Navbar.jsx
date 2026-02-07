@@ -1,3 +1,4 @@
+// not in use
 import React, { useState } from 'react';
 import { Menu, X, MessageCircle, Pill, TrendingUp, Heart, MapPin, Home } from 'lucide-react';
 import './Navbar.css';
