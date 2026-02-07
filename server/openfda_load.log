@@ -43,3 +43,14 @@
 [32m✓[0m Fetched 100 drugs
 [36mℹ[0m Total fetched so far: 1000/254315
 [36mℹ[0m Fetching drugs (skip: 1000, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 1100/254315
+[33m⚠[0m Stopping at 1,000 drugs (adjust limit in code)
+
+[1m[36m============================================================[0m
+[1m                      Loading 0 Drugs[0m
+[1m[36m============================================================[0m
+
+
+[32m✓[0m Loaded: 0 drugs
+[32m✓[0m ✓ Complete! Loaded 0 drugs into database
