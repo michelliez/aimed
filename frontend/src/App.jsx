@@ -1,5 +1,9 @@
-import { useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import './App.css'
+import { MixCheckPage } from './MixCheckPage'
+import { ComparePage } from './ComparePage'
+import { RecommendationPage } from './RecommendationPage'
+
 
 const TABS = [
   { id: 'mix', label: 'Mix', tagline: 'Check interactions' },
@@ -265,7 +269,10 @@ function App() {
           </section>
         )}
 
-        {activeTab === 'mix' && (
+{activeTab === 'mix' && (
+  <MixCheckPage />
+)}
+        {/* {activeTab === 'mix' && (
           <section className="page">
             <div className="page-head">
               <div>
@@ -385,199 +392,11 @@ function App() {
               </table>
             </div>
           </section>
-        )}
+        )} */}
 
-        {activeTab === 'compare' && (
-          <section className="page">
-            <div className="page-head">
-              <div>
-                <h2>Compare</h2>
-                <p>Contrast products or doses side-by-side.</p>
-              </div>
-              <p className="disclaimer">
-                Use this to spot formulation differences, not to replace medical
-                advice.
-              </p>
-            </div>
+        {activeTab === 'compare' && <ComparePage />}
 
-            <div className="grid-two">
-              <div className="panel">
-                <h3>Pick products</h3>
-                <label className="field">
-                  Custom product
-                  <div className="field-row">
-                    <input
-                      value={compareInput}
-                      onChange={(event) => setCompareInput(event.target.value)}
-                      placeholder="Type a product name"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        addCompareItem(compareInput)
-                        setCompareInput('')
-                      }}
-                    >
-                      Add
-                    </button>
-                  </div>
-                </label>
-                <label className="field">
-                  Dropdown
-                  <div className="field-row">
-                    <select
-                      value={compareSelection}
-                      onChange={(event) =>
-                        setCompareSelection(event.target.value)
-                      }
-                    >
-                      {COMPARE_SUGGESTIONS.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => addCompareItem(compareSelection)}
-                    >
-                      Add
-                    </button>
-                  </div>
-                </label>
-                <div className="chip-group">
-                  {compareItems.map((item) => (
-                    <button
-                      key={item}
-                      className="chip"
-                      onClick={() =>
-                        setCompareItems((prev) =>
-                          prev.filter((entry) => entry !== item)
-                        )
-                      }
-                    >
-                      {item}
-                      <span>×</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="panel highlight">
-                <h3>Compare logic</h3>
-                <ul className="bullets">
-                  <li>Product label data from the supplement database.</li>
-                  <li>Match on dose, form, and active ingredients.</li>
-                  <li>Highlight formulation notes and cautions.</li>
-                </ul>
-                <div className="callout">
-                  <strong>Prompt:</strong> Compare multiple vitamin D doses.
-                </div>
-              </div>
-            </div>
-
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Product</th>
-                    <th>Dose</th>
-                    <th>Form</th>
-                    <th>Key Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {compareTable.length ? (
-                    compareTable.map((row) => (
-                      <tr key={row.product}>
-                        <td>{row.product}</td>
-                        <td>{row.dose}</td>
-                        <td>{row.form}</td>
-                        <td>{row.notes}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={4} className="empty">
-                        Select products to populate the comparison table.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
-
-        {activeTab === 'recommend' && (
-          <section className="page">
-            <div className="page-head">
-              <div>
-                <h2>Recommendations</h2>
-                <p>Evidence-led, transparent suggestions with safety flags.</p>
-              </div>
-              <p className="disclaimer">
-                Recommendations are informational only and may not be right for
-                you.
-              </p>
-            </div>
-
-            <div className="grid-two">
-              <div className="panel">
-                <h3>Tell us about you</h3>
-                <label className="field">
-                  Symptoms / goals
-                  <textarea
-                    rows={4}
-                    value={symptoms}
-                    onChange={(event) => setSymptoms(event.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  Current stack
-                  <input placeholder="Vitamin D3, Metformin" />
-                </label>
-                <button className="primary" type="button">
-                  Generate recommendations
-                </button>
-              </div>
-
-              <div className="panel highlight">
-                <h3>Guardrails</h3>
-                <ul className="bullets">
-                  <li>We prioritize interactions before suggestions.</li>
-                  <li>Every recommendation includes a rationale.</li>
-                  <li>High-risk combinations are blocked.</li>
-                </ul>
-                <div className="callout">
-                  <strong>Disclosure:</strong> AI suggestions must be validated by
-                  a clinician.
-                </div>
-              </div>
-            </div>
-
-            <div className="recommend-grid">
-              {RECOMMENDATIONS.map((block) => (
-                <div className="panel" key={block.title}>
-                  <h3>{block.title}</h3>
-                  <ul className="bullets">
-                    {block.items.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-              <div className="panel danger">
-                <h3>Giant Disclaimer</h3>
-                <p>
-                  This product does not provide medical advice. It is for
-                  educational and informational purposes only and should not be
-                  used for diagnosis or treatment.
-                </p>
-              </div>
-            </div>
-          </section>
-        )}
+        {activeTab === 'recommend' && <RecommendationPage />}
 
         {activeTab === 'where' && (
           <section className="page">
