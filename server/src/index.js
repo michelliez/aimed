@@ -49,13 +49,13 @@ app.get('/products', async (request) => {
   let where = ''
   if (q) {
     params.push(`%${q}%`)
-    where = `WHERE product_name ILIKE $${params.length}`
+    where = `WHERE name ILIKE $${params.length}`
   }
   const { rows } = await client.query(
-    `SELECT dsld_id, product_name, brand_name
+    `SELECT id, name, type, generic_name, brand_names
      FROM products
      ${where}
-     ORDER BY product_name
+     ORDER BY name
      LIMIT ${limit}`,
     params
   )
@@ -99,25 +99,17 @@ app.post('/mix', async (request) => {
     if (!input) continue
 
     const { rows: productRows } = await client.query(
-      `SELECT dsld_id, product_name, brand_name
+      `SELECT id, name, type, active_ingredients, generic_name
        FROM products
-       WHERE product_name ILIKE $1
-       ORDER BY product_name
+       WHERE LOWER(name) ILIKE $1
+       ORDER BY name
        LIMIT 1`,
-      [input]
+      [input.toLowerCase()]
     )
 
     if (productRows.length) {
       const product = productRows[0]
-      const { rows: ingredientRows } = await client.query(
-        `SELECT ingredient
-         FROM supplement_facts
-         WHERE dsld_id = $1`,
-        [product.dsld_id]
-      )
-      const ingredients = ingredientRows
-        .map((row) => row.ingredient)
-        .filter(Boolean)
+      const ingredients = product.active_ingredients || []
       ingredients.forEach((ingredient) =>
         ingredientSet.add(ingredient.toLowerCase())
       )
@@ -130,22 +122,9 @@ app.post('/mix', async (request) => {
       continue
     }
 
-    const { rows: ingredientMatches } = await client.query(
-      `SELECT DISTINCT ingredient
-       FROM supplement_facts
-       WHERE ingredient ILIKE $1
-       ORDER BY ingredient
-       LIMIT 1`,
-      [input]
-    )
-
-    if (ingredientMatches.length) {
-      const ingredient = ingredientMatches[0].ingredient
-      ingredientSet.add(ingredient.toLowerCase())
-      resolved.push({ input, type: 'ingredient', ingredient })
-    } else {
-      resolved.push({ input, type: 'unknown' })
-    }
+    // Treat as ingredient if not found
+    resolved.push({ input, type: 'ingredient', ingredient: input })
+    ingredientSet.add(input.toLowerCase())
   }
 
   const ingredients = Array.from(ingredientSet)
@@ -153,14 +132,8 @@ app.post('/mix', async (request) => {
     return { interactions: [], resolved }
   }
 
-  const { rows: interactionRows } = await client.query(
-    `SELECT ingredient_a, ingredient_b, severity, interaction, notes, evidence_url
-     FROM interactions
-     WHERE ingredient_a = ANY($1) AND ingredient_b = ANY($1)`,
-    [ingredients]
-  )
-
-  return { interactions: interactionRows, resolved }
+  // Return empty interactions since we don't have interaction data yet
+  return { interactions: [], resolved }
 })
 
 app.post('/compare', async (request) => {
@@ -181,35 +154,25 @@ app.post('/compare', async (request) => {
 
     // Find product in database
     const { rows: productRows } = await client.query(
-      `SELECT dsld_id, product_name, brand_name, serving_size, supplement_form, suggested_use
+      `SELECT id, name, type, generic_name, brand_names, dosage_form, strength, description, active_ingredients
        FROM products
-       WHERE product_name ILIKE $1
-       ORDER BY product_name
+       WHERE LOWER(name) ILIKE $1
+       ORDER BY name
        LIMIT 1`,
-      [trimmed]
+      [trimmed.toLowerCase()]
     )
 
     if (productRows.length) {
       const product = productRows[0]
-      
-      // Get ingredients/supplement facts
-      const { rows: ingredientRows } = await client.query(
-        `SELECT ingredient, amount_per_serving, amount_unit
-         FROM supplement_facts
-         WHERE dsld_id = $1
-         ORDER BY ingredient
-         LIMIT 10`,
-        [product.dsld_id]
-      )
-
       productDetails.push({
-        name: product.product_name,
-        brand: product.brand_name,
-        dose: ingredientRows[0]?.amount_per_serving || 'N/A',
-        form: product.supplement_form || 'N/A',
-        serving_size: product.serving_size || 'N/A',
-        ingredients: ingredientRows.map((row) => row.ingredient),
-        suggested_use: product.suggested_use || 'N/A'
+        name: product.name,
+        type: product.type,
+        generic_name: product.generic_name || 'N/A',
+        brand: Array.isArray(product.brand_names) ? product.brand_names.join(', ') : 'N/A',
+        form: product.dosage_form || 'N/A',
+        strength: product.strength || 'N/A',
+        description: product.description || 'N/A',
+        active_ingredients: product.active_ingredients || []
       })
     }
   }

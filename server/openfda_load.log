@@ -1,0 +1,33 @@
+
+[1m[36m============================================================[0m
+[1m                 AIMED - Load OpenFDA Drugs[0m
+[1m[36m============================================================[0m
+
+[36mℹ[0m Validating configuration...
+[32m✓[0m Configuration valid
+[36mℹ[0m Connecting to Supabase...
+[32m✓[0m Connected to Supabase
+
+[1m[36m============================================================[0m
+[1m              Fetching Drug Data from OpenFDA[0m
+[1m[36m============================================================[0m
+
+[36mℹ[0m Fetching drugs (skip: 0, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 100/254315
+[36mℹ[0m Fetching drugs (skip: 100, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 200/254315
+[36mℹ[0m Fetching drugs (skip: 200, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 300/254315
+[36mℹ[0m Fetching drugs (skip: 300, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 400/254315
+[36mℹ[0m Fetching drugs (skip: 400, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 500/254315
+[36mℹ[0m Fetching drugs (skip: 500, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 600/254315
+[36mℹ[0m Fetching drugs (skip: 600, limit: 100)...

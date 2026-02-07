@@ -7,13 +7,15 @@
  * Usage: node load_dsld_data.js
  */
 
-const axios = require('axios');
-const { createClient } = require('@supabase/supabase-js');
-require('dotenv').config();
+import axios from 'axios';
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-const DSLD_API_URL = 'https://dsld-api.app.cloud.gov/api/v9';
+const DSLD_API_URL = 'https://api.ods.od.nih.gov/dsld/v9';
 
 // Colors
 const colors = {
@@ -63,7 +65,7 @@ async function fetchProductPage(pageNum, pageSize = 100) {
     const response = await axios.get(`${DSLD_API_URL}/browse-products/`, {
       params: {
         method: 'by_keyword',
-        q: '*',  // Wildcard to get all
+        q: 'vitamin',  // Search for vitamin products initially
         size: pageSize,
         from: pageNum * pageSize,
       },
@@ -71,11 +73,15 @@ async function fetchProductPage(pageNum, pageSize = 100) {
     });
     
     const data = response.data;
-    log.success(`Fetched ${data.results?.length || 0} products`);
+    // DSLD API returns results in 'hits' array with '_source' containing actual data
+    const products = data.hits ? data.hits.map(hit => hit._source) : [];
+    const total = data.total?.value || 0;
+    
+    log.success(`Fetched ${products.length} products from page ${pageNum}`);
     
     return {
-      products: data.results || [],
-      total: data.total || 0,
+      products,
+      total,
     };
   } catch (error) {
     log.warning(`Error fetching page ${pageNum}: ${error.message.substring(0, 50)}`);
@@ -83,40 +89,42 @@ async function fetchProductPage(pageNum, pageSize = 100) {
   }
 }
 
-async function fetchProductDetail(dsldId) {
-  try {
-    const response = await axios.get(`${DSLD_API_URL}/label/${dsldId}`, {
-      timeout: 30000,
-    });
-    
-    return response.data;
-  } catch (error) {
-    log.warning(`Error fetching product ${dsldId}: ${error.message.substring(0, 50)}`);
-    return null;
-  }
-}
 
 function parseProduct(product) {
-  // Extract ingredients from product data
+  // Extract ingredients from supplement facts
   const ingredients = [];
   
-  if (product.ingredientRows && Array.isArray(product.ingredientRows)) {
-    product.ingredientRows.forEach(row => {
-      if (row.name) {
-        ingredients.push(row.name);
+  if (product.supplementFacts && Array.isArray(product.supplementFacts)) {
+    product.supplementFacts.forEach(fact => {
+      if (fact.name) {
+        ingredients.push(fact.name);
       }
     });
   }
   
+  // Get serving size info
+  let strength = null;
+  if (product.servingSizes && product.servingSizes.length > 0) {
+    const serving = product.servingSizes[0];
+    if (serving.minQuantity) {
+      strength = `${serving.minQuantity}${serving.unit ? ' ' + serving.unit : ''}`.trim();
+    }
+  }
+  
+  // Extract product name - use fullName if available
+  const productName = product.fullName || product.name || 'Unknown';
+  
   return {
-    name: (product.productName || '').toLowerCase(),
+    name: productName,
     type: 'supplement',
-    dsld_id: product.dsldId,
-    brand_name: product.brandName || null,
-    product_form: product.supplementForm || product.productForm || null,
-    description: product.productName || null,
+    dsld_id: product._id || null,  // DSLD ID from response
+    generic_name: null,  // DSLD doesn't provide this
+    brand_names: product.brandName ? [product.brandName] : [],
+    dosage_form: product.physicalState?.langualCodeDescription || null,
+    strength: strength,
+    description: productName,
     active_ingredients: ingredients,
-    market_status: product.marketStatus || 'Unknown',
+    market_status: 'Active',  // Default, would need to check events for actual status
   };
 }
 
@@ -199,26 +207,23 @@ async function main() {
         break;
       }
       
-      // Enrich products with full data
+      // Parse and add products
       for (const product of products) {
-        const detail = await fetchProductDetail(product.dsldId);
-        if (detail) {
-          const parsed = parseProduct(detail);
-          allProducts.push(parsed);
-        }
+        const parsed = parseProduct(product);
+        allProducts.push(parsed);
         
         // Rate limiting - DSLD API has limits
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
       
       totalFetched += products.length;
-      log.info(`Total fetched so far: ${totalFetched}`);
+      log.info(`Total fetched so far: ${totalFetched}/${total}`);
       
       pageNum++;
       
       // Stop after reasonable amount (adjust as needed)
-      if (pageNum > 50) { // Get first 5,000 products
-        log.warning('Stopping at 5,000 products (adjust limit in code)');
+      if (pageNum > 10) { // Get first 1,000 products
+        log.warning('Stopping at 1,000 products (adjust limit in code)');
         break;
       }
     }

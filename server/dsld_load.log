@@ -1,0 +1,64 @@
+
+[1m[36m============================================================[0m
+[1m               AIMED - Load DSLD Supplements[0m
+[1m[36m============================================================[0m
+
+[36mℹ[0m Validating configuration...
+[32m✓[0m Configuration valid
+[36mℹ[0m Connecting to Supabase...
+[32m✓[0m Connected to Supabase
+
+[1m[36m============================================================[0m
+[1m             Fetching Supplement Data from DSLD[0m
+[1m[36m============================================================[0m
+
+[36mℹ[0m Fetching page 0 (100 items)...
+[32m✓[0m Fetched 100 products from page 0
+[36mℹ[0m Total fetched so far: 100/14765
+[36mℹ[0m Fetching page 1 (100 items)...
+[32m✓[0m Fetched 100 products from page 1
+[36mℹ[0m Total fetched so far: 200/14765
+[36mℹ[0m Fetching page 2 (100 items)...
+[32m✓[0m Fetched 100 products from page 2
+[36mℹ[0m Total fetched so far: 300/14765
+[36mℹ[0m Fetching page 3 (100 items)...
+[32m✓[0m Fetched 100 products from page 3
+[36mℹ[0m Total fetched so far: 400/14765
+[36mℹ[0m Fetching page 4 (100 items)...
+[32m✓[0m Fetched 100 products from page 4
+[36mℹ[0m Total fetched so far: 500/14765
+[36mℹ[0m Fetching page 5 (100 items)...
+[32m✓[0m Fetched 100 products from page 5
+[36mℹ[0m Total fetched so far: 600/14765
+[36mℹ[0m Fetching page 6 (100 items)...
+[32m✓[0m Fetched 100 products from page 6
+[36mℹ[0m Total fetched so far: 700/14765
+[36mℹ[0m Fetching page 7 (100 items)...
+[32m✓[0m Fetched 100 products from page 7
+[36mℹ[0m Total fetched so far: 800/14765
+[36mℹ[0m Fetching page 8 (100 items)...
+[32m✓[0m Fetched 100 products from page 8
+[36mℹ[0m Total fetched so far: 900/14765
+[36mℹ[0m Fetching page 9 (100 items)...
+[32m✓[0m Fetched 100 products from page 9
+[36mℹ[0m Total fetched so far: 1000/14765
+[36mℹ[0m Fetching page 10 (100 items)...
+[32m✓[0m Fetched 100 products from page 10
+[36mℹ[0m Total fetched so far: 1100/14765
+[33m⚠[0m Stopping at 1,000 products (adjust limit in code)
+
+[1m[36m============================================================[0m
+[1m                   Loading 1100 Products[0m
+[1m[36m============================================================[0m
+
+[36mℹ[0m Progress: 900/1100
+[36mℹ[0m Progress: 950/1100
+[36mℹ[0m Progress: 1050/1100
+[36mℹ[0m Progress: 1100/1100
+
+[32m✓[0m Loaded: 174 supplements
+[33m⚠[0m Errors: 926
+[32m✓[0m ✓ Complete! Loaded 174 supplements into database
+[32m✓[0m Loaded: 303 supplements
+[33m⚠[0m Errors: 797
+[32m✓[0m ✓ Complete! Loaded 303 supplements into database

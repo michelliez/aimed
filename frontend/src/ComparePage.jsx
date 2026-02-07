@@ -81,7 +81,7 @@ export function ComparePage() {
       if (!items.length) throw new Error('no_products')
       setProducts(items)
       if (items.length > 0) {
-        setCompareSelection(items[0].product_name)
+        setCompareSelection(items[0].name)
       }
       setUsingMock(false)
     } catch (err) {
@@ -212,8 +212,8 @@ export function ComparePage() {
                 onChange={(e) => setCompareSelection(e.target.value)}
               >
                 {products.map((product) => (
-                  <option key={product.dsld_id} value={product.product_name}>
-                    {product.product_name} ({product.brand_name})
+                  <option key={product.id} value={product.name}>
+                    {product.name}
                   </option>
                 ))}
               </select>
@@ -281,11 +281,32 @@ export function ComparePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {/* Dose row */}
+                  {/* Type row */}
                   <tr>
-                    <td><strong>Dose</strong></td>
+                    <td><strong>Type</strong></td>
                     {compareResults[0]?.products?.map((p, idx) => (
-                      <td key={idx}>{p.dose || 'N/A'}</td>
+                      <td key={idx}>{p.type || 'N/A'}</td>
+                    ))}
+                  </tr>
+                  {/* Generic Name row */}
+                  <tr>
+                    <td><strong>Generic Name</strong></td>
+                    {compareResults[0]?.products?.map((p, idx) => (
+                      <td key={idx}>{p.generic_name || 'N/A'}</td>
+                    ))}
+                  </tr>
+                  {/* Brand Names row */}
+                  <tr>
+                    <td><strong>Brand</strong></td>
+                    {compareResults[0]?.products?.map((p, idx) => (
+                      <td key={idx}>{p.brand || 'N/A'}</td>
+                    ))}
+                  </tr>
+                  {/* Strength row */}
+                  <tr>
+                    <td><strong>Strength</strong></td>
+                    {compareResults[0]?.products?.map((p, idx) => (
+                      <td key={idx}>{p.strength || 'N/A'}</td>
                     ))}
                   </tr>
                   {/* Form row */}
@@ -295,38 +316,31 @@ export function ComparePage() {
                       <td key={idx}>{p.form || 'N/A'}</td>
                     ))}
                   </tr>
-                  {/* Serving size row */}
+                  {/* Description row */}
                   <tr>
-                    <td><strong>Serving Size</strong></td>
+                    <td><strong>Description</strong></td>
                     {compareResults[0]?.products?.map((p, idx) => (
-                      <td key={idx}>{p.serving_size || 'N/A'}</td>
+                      <td key={idx}>{p.description || 'N/A'}</td>
                     ))}
                   </tr>
-                  {/* Key ingredients/actives */}
+                  {/* Active Ingredients */}
                   <tr>
-                    <td><strong>Key Ingredients</strong></td>
+                    <td><strong>Active Ingredients</strong></td>
                     {compareResults[0]?.products?.map((p, idx) => (
                       <td key={idx}>
-                        {p.ingredients && Array.isArray(p.ingredients) ? (
+                        {p.active_ingredients && Array.isArray(p.active_ingredients) && p.active_ingredients.length > 0 ? (
                           <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                            {p.ingredients.slice(0, 3).map((ing, i) => (
+                            {p.active_ingredients.slice(0, 3).map((ing, i) => (
                               <li key={i}>{ing}</li>
                             ))}
-                            {p.ingredients.length > 3 && (
-                              <li>+{p.ingredients.length - 3} more</li>
+                            {p.active_ingredients.length > 3 && (
+                              <li>+{p.active_ingredients.length - 3} more</li>
                             )}
                           </ul>
                         ) : (
-                          'N/A'
+                          'None listed'
                         )}
                       </td>
-                    ))}
-                  </tr>
-                  {/* Notes/suggested use */}
-                  <tr>
-                    <td><strong>Suggested Use</strong></td>
-                    {compareResults[0]?.products?.map((p, idx) => (
-                      <td key={idx}>{p.suggested_use || 'N/A'}</td>
                     ))}
                   </tr>
                 </tbody>

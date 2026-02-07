@@ -88,7 +88,7 @@ export function MixCheckPage() {
       }
       setProducts(items)
       if (items.length > 0) {
-        setMixSelection(items[0].product_name)
+        setMixSelection(items[0].name)
       }
       setUsingMock(false)
     } catch (err) {
@@ -230,8 +230,8 @@ export function MixCheckPage() {
                 onChange={(event) => setMixSelection(event.target.value)}
               >
                 {products.map((item) => (
-                  <option key={item.dsld_id} value={item.product_name}>
-                    {item.product_name}
+                  <option key={item.id} value={item.name}>
+                    {item.name}
                   </option>
                 ))}
               </select>
