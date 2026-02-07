@@ -1,0 +1,20 @@
+{
+  "name": "aimed-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "db:migrate": "node scripts/migrate.js",
+    "db:ingest": "node scripts/ingest.js",
+    "db:seed": "node scripts/seed_interactions.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.1",
+    "csv-parse": "^5.6.0",
+    "dotenv": "^16.4.5",
+    "fastify": "^5.7.4",
+    "pg": "^8.12.0"
+  }
+}
