@@ -205,7 +205,6 @@ function App() {
             </button>
           ))}
         </nav>
-        <button className="cta">Launch Demo</button>
       </header>
 
       <main>
