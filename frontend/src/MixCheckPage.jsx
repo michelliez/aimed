@@ -212,19 +212,9 @@ export function MixCheckPage() {
       setInteractions(payload.interactions || [])
       setUsingMock(false)
     } catch (err) {
-      const localMatches = MOCK_INTERACTIONS.filter((row) => {
-        const a = normalize(row.ingredient_a)
-        const b = normalize(row.ingredient_b)
-        return normalizedSelected.includes(a) && normalizedSelected.includes(b)
-      })
-      if (localMatches.length > 0) {
-        setInteractions(localMatches)
-        setError('Backend unavailable. Showing demo interactions.')
-      } else {
-        setInteractions([])
-        setError('Backend unavailable. No demo interactions for these substances.')
-      }
-      setUsingMock(true)
+      setInteractions([])
+      setUsingMock(false)
+      setError('Could not fetch interactions. Please try again or check your connection.')
     } finally {
       setChecking(false)
     }
