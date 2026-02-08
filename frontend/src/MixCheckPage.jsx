@@ -396,9 +396,8 @@ export function MixCheckPage() {
             </tr>
           </thead>
           <tbody>
-            {interactions.filter(i => i.severity !== 'none').length ? (
+            {interactions.length ? (
               interactions
-                .filter(i => i.severity !== 'none')
                 .map((row, idx) => (
                 <tr key={idx}>
                   <td>{`${row.ingredient_a} + ${row.ingredient_b}`}</td>
@@ -426,7 +425,7 @@ export function MixCheckPage() {
             ) : hasChecked ? (
               <tr>
                 <td colSpan={4} className="empty">
-                  No demo interactions found. Try “Vitamin K2 (MK-7) + Warfarin”.
+                  No interactions found for these substances.
                 </td>
               </tr>
             ) : (
