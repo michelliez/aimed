@@ -67,7 +67,7 @@ async function getAllProducts(supabase) {
   try {
     const { data, error } = await supabase
       .from('products')
-      .select('id, name, type')
+      .select('id, name, type, generic_name')
       .order('id');
     
     if (error) throw error;
@@ -156,24 +156,53 @@ function determineSeverity(description) {
   return 'moderate'; // default
 }
 
-async function findProductId(supabase, drugName, productMap) {
-  // Quick lookup in memory map first
+async function findProductId(supabase, drugName, productMap, productMapWithGeneric) {
+  // Quick lookup in memory map first - exact or substring match
   const lower = drugName.toLowerCase();
-  for (const [id, name] of Object.entries(productMap)) {
-    if (name.toLowerCase() === lower || name.toLowerCase().includes(lower)) {
+  
+  // Check both name and generic_name in memory map
+  for (const [id, product] of Object.entries(productMapWithGeneric)) {
+    const name = product.name?.toLowerCase() || '';
+    const generic = product.generic_name?.toLowerCase() || '';
+    
+    if (name === lower || generic === lower || name.includes(lower) || generic.includes(lower)) {
       return parseInt(id);
     }
   }
   
-  // Fallback to database query if not in map
+  // Fallback to database query with multiple match strategies
   try {
-    const { data } = await supabase
+    // Strategy 1: Exact match on name or generic_name
+    let { data } = await supabase
       .from('products')
       .select('id')
-      .ilike('name', `%${drugName}%`)
+      .or(`name.ilike.${drugName},generic_name.ilike.${drugName}`)
       .limit(1);
     
-    return data && data.length > 0 ? data[0].id : null;
+    if (data && data.length > 0) return data[0].id;
+    
+    // Strategy 2: Substring match in name or generic_name
+    ({ data } = await supabase
+      .from('products')
+      .select('id')
+      .or(`name.ilike.%${drugName}%,generic_name.ilike.%${drugName}%`)
+      .limit(1));
+    
+    if (data && data.length > 0) return data[0].id;
+    
+    // Strategy 3: Match first word of drug name (handles cases like "Metformin hydrochloride" -> "Metformin")
+    const firstWord = drugName.split(/\s+/)[0].toLowerCase();
+    if (firstWord.length > 3) {
+      ({ data } = await supabase
+        .from('products')
+        .select('id')
+        .or(`name.ilike.%${firstWord}%,generic_name.ilike.%${firstWord}%`)
+        .limit(1));
+      
+      if (data && data.length > 0) return data[0].id;
+    }
+    
+    return null;
   } catch {
     return null;
   }
@@ -248,12 +277,16 @@ async function main() {
     log.header('Fetching Products');
     const products = await getAllProducts(supabase);
     
-    // Create product map for quick lookups
+    // Create product map for quick lookups - include both name and generic_name
     const productMap = {};
+    const productMapWithGeneric = {};
     products.forEach(p => {
       productMap[p.id] = p.name;
+      productMapWithGeneric[p.id] = {
+        name: p.name,
+        generic_name: p.generic_name,
+      };
     });
-    
     log.header('Querying RxNorm Interactions');
     
     const interactions = [];
@@ -261,8 +294,8 @@ async function main() {
     let foundInteractions = 0;
     let notFound = 0;
     
-    // Rate limiting: 500ms between requests (very conservative for RxNorm)
-    const RATE_LIMIT_MS = 500;
+    // Rate limiting: 20 rps max = 50ms minimum between requests
+    const RATE_LIMIT_MS = 50;
     
     for (let i = 0; i < products.length; i++) {
       const product = products[i];
@@ -280,7 +313,7 @@ async function main() {
         
         // Match interactions with our products
         for (const rxinter of rxInteractions) {
-          const productId2 = await findProductId(supabase, rxinter.drugName, productMap);
+          const productId2 = await findProductId(supabase, rxinter.drugName, productMap, productMapWithGeneric);
           
           if (productId2 && productId2 !== product.id) {
             interactions.push({

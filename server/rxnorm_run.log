@@ -1,0 +1,7 @@
+
+[1m[36m============================================================[0m
+[1m              AIMED - Load RxNorm Interactions[0m
+[1m[36m============================================================[0m
+
+[36mℹ[0m Validating configuration...
+[31m✗[0m Missing SUPABASE_URL or SUPABASE_SERVICE_KEY in .env
