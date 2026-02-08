@@ -96,55 +96,50 @@ app.post('/mix', async (request) => {
   }
 
   try {
-    // Query products matching input items
-    const { data: productRows, error } = await supabase
+    // Fetch all products and match locally (more reliable than complex Supabase filters)
+    const { data: allProducts, error: fetchError } = await supabase
       .from('products')
       .select('id, name, type, active_ingredients, generic_name')
-      .or(cleanItems.map(item => `name.ilike.${item}%`).join(','))
-      .order('name')
 
-    if (error) throw error
+    if (fetchError) throw fetchError
 
-    // Build product map
-    const productMap = new Map()
-    productRows.forEach(p => {
-      productMap.set(p.name.toLowerCase(), p)
-    })
-
+    // Match products to input items
+    const matchedProducts = []
     const resolved = []
-    const ingredientSet = new Set()
 
-    for (const rawItem of items) {
-      const input = String(rawItem).trim()
-      if (!input) continue
+    for (const inputItem of cleanItems) {
+      const inputLower = inputItem.toLowerCase()
+      
+      // Find matching product (exact or contains match)
+      const match = allProducts.find(p => 
+        p.name.toLowerCase().includes(inputLower) ||
+        (p.generic_name && p.generic_name.toLowerCase().includes(inputLower))
+      )
 
-      const product = productMap.get(input.toLowerCase())
-
-      if (product) {
-        const ingredients = product.active_ingredients || []
-        ingredients.forEach((ingredient) =>
-          ingredientSet.add(ingredient.toLowerCase())
-        )
+      if (match) {
         resolved.push({
-          input,
+          input: inputItem,
           type: 'product',
-          product,
-          ingredients,
+          product: match,
+          ingredients: match.active_ingredients || [],
         })
-        continue
+        matchedProducts.push(match)
+      } else {
+        // Treat as custom ingredient
+        resolved.push({
+          input: inputItem,
+          type: 'ingredient',
+          ingredient: inputItem,
+        })
       }
-
-      // Treat as ingredient if not found
-      resolved.push({ input, type: 'ingredient', ingredient: input })
-      ingredientSet.add(input.toLowerCase())
     }
 
-    // Get product IDs for interaction check
-    const productIds = productRows.map(p => p.id)
+    // Get interactions between matched products
+    const interactions = []
+    if (matchedProducts.length >= 2) {
+      const productIds = matchedProducts.map(p => p.id)
 
-    if (productIds.length >= 2) {
-      // Check for interactions
-      const { data: interactions, error: interError } = await supabase
+      const { data: dbInteractions, error: interError } = await supabase
         .from('interactions')
         .select(`
           *,
@@ -154,20 +149,20 @@ app.post('/mix', async (request) => {
         .in('product_id_1', productIds)
         .in('product_id_2', productIds)
 
-      if (!interError && interactions?.length > 0) {
-        const formattedInteractions = interactions.map(inter => ({
-          ingredient_a: inter.product1.name,
-          ingredient_b: inter.product2.name,
-          severity: inter.severity,
-          interaction: inter.interaction_description,
-          notes: inter.notes
-        }))
-
-        return { interactions: formattedInteractions, resolved }
+      if (!interError && dbInteractions?.length > 0) {
+        dbInteractions.forEach(inter => {
+          interactions.push({
+            ingredient_a: inter.product1.name,
+            ingredient_b: inter.product2.name,
+            severity: inter.severity,
+            interaction: inter.interaction_description,
+            notes: inter.notes
+          })
+        })
       }
     }
 
-    return { interactions: [], resolved }
+    return { interactions, resolved }
   } catch (error) {
     app.log.error({ err: error }, 'Mix query failed')
     return { interactions: [], resolved: [], error: 'database_unavailable' }
@@ -186,26 +181,66 @@ app.post('/compare', async (request) => {
   }
 
   try {
+    // Build flexible query to match products by name or generic name
+    const likeConditions = cleanNames.map(name => `name.ilike.%${name}%`).join(',')
+    
     const { data: productRows, error } = await supabase
       .from('products')
       .select('id, name, type, generic_name, brand_names, dosage_form, strength, description, active_ingredients')
-      .or(cleanNames.map(name => `name.ilike.${name}%`).join(','))
+      .or(likeConditions)
       .order('name')
 
     if (error) throw error
 
-    const productDetails = productRows.map(product => ({
-      name: product.name,
-      type: product.type,
-      generic_name: product.generic_name || 'N/A',
-      brand: Array.isArray(product.brand_names) ? product.brand_names.join(', ') : 'N/A',
-      form: product.dosage_form || 'N/A',
-      strength: product.strength || 'N/A',
-      description: product.description || 'N/A',
-      active_ingredients: product.active_ingredients || []
-    }))
+    if (!productRows || productRows.length === 0) {
+      return { comparison: [], error: 'no_products_found' }
+    }
 
-    return { comparison: [{ products: productDetails }] }
+    // Map input names to found products (handle case-insensitive, partial matches)
+    const foundProducts = []
+    for (const inputName of cleanNames) {
+      const match = productRows.find(p => 
+        p.name.toLowerCase().includes(inputName.toLowerCase()) ||
+        (p.generic_name && p.generic_name.toLowerCase().includes(inputName.toLowerCase()))
+      )
+      if (match) {
+        foundProducts.push(match)
+      }
+    }
+
+    // If we have at least 2 matches, return comparison
+    if (foundProducts.length >= 2) {
+      const productDetails = foundProducts.map(product => ({
+        name: product.name,
+        type: product.type,
+        generic_name: product.generic_name || 'N/A',
+        brand: Array.isArray(product.brand_names) ? product.brand_names.join(', ') : 'N/A',
+        form: product.dosage_form || 'N/A',
+        strength: product.strength || 'N/A',
+        description: product.description || 'N/A',
+        active_ingredients: product.active_ingredients || []
+      }))
+
+      return { comparison: [{ products: productDetails }] }
+    }
+
+    // If only partial matches, return what we have
+    if (foundProducts.length > 0) {
+      const productDetails = foundProducts.map(product => ({
+        name: product.name,
+        type: product.type,
+        generic_name: product.generic_name || 'N/A',
+        brand: Array.isArray(product.brand_names) ? product.brand_names.join(', ') : 'N/A',
+        form: product.dosage_form || 'N/A',
+        strength: product.strength || 'N/A',
+        description: product.description || 'N/A',
+        active_ingredients: product.active_ingredients || []
+      }))
+
+      return { comparison: [{ products: productDetails }] }
+    }
+
+    return { comparison: [], error: 'no_matching_products' }
   } catch (error) {
     app.log.error({ err: error }, 'Compare query failed')
     return { comparison: [], error: 'database_unavailable' }
