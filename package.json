@@ -1,5 +1,6 @@
 {
   "name": "aimed",
+<<<<<<< HEAD
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -26,5 +27,15 @@
   },
   "overrides": {
     "vite": "npm:rolldown-vite@7.2.5"
+=======
+  "version": "1.0.0",
+  "description": "Medicine + supplement intelligence platform",
+  "private": true,
+  "scripts": {
+    "start": "cd server && npm install && npm start"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+>>>>>>> a44c1cde75ed7ee9bd08a94aa6d28322fe8eb26b
   }
 }
