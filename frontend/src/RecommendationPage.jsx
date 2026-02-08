@@ -1,356 +1,563 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
+
+const DISCLAIMER =
+  'For educational purposes only — not medical advice. Always consult a healthcare professional.'
+
+const MOCK_PRODUCTS = [
+  { name: 'Vitamin D3' },
+  { name: 'Magnesium glycinate' },
+  { name: 'Ibuprofen' },
+  { name: 'Sertraline' },
+  { name: 'Omega-3 fish oil' },
+]
 
 export function RecommendationPage() {
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      role: 'assistant',
-      content:
-        "Hi! I'm your supplement recommendation assistant. To give you personalized suggestions, I'd like to know a bit about you. What brings you here today? (e.g., low energy, joint pain, sleep issues, general wellness)",
-    },
-  ])
-  const [input, setInput] = useState('')
+  const [symptomsInput, setSymptomsInput] = useState('')
+  const [medicationInput, setMedicationInput] = useState('')
+  const [supplementInput, setSupplementInput] = useState('')
+  const [medications, setMedications] = useState([])
+  const [supplements, setSupplements] = useState([])
+  const [productOptions, setProductOptions] = useState([])
+  const [medicationSelection, setMedicationSelection] = useState('')
+  const [supplementSelection, setSupplementSelection] = useState('')
+  const [medicalConsiderations, setMedicalConsiderations] = useState({
+    pregnancy: false,
+    allergies: false,
+    kidneyLiverIssues: false,
+    bloodPressureConcerns: false,
+  })
+  const [preferences, setPreferences] = useState({
+    preferenceType: 'no_preference',
+    avoidDrowsiness: false,
+    avoidStimulants: false,
+  })
+  const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [usingMock, setUsingMock] = useState(false)
-  const [conversationPhase, setConversationPhase] = useState('symptoms') // symptoms → history → current → recommendations
-  const [userProfile, setUserProfile] = useState({
-    symptoms: [],
-    medicalHistory: [],
-    currentSupplements: [],
-    currentMedications: [],
-  })
-  const messagesEndRef = useRef(null)
+
   const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:9000'
 
-  const mockRecommendation = useMemo(() => {
-    const profile = userProfile.symptoms.join(' ').toLowerCase()
-    if (profile.includes('sleep')) {
-      return 'Consider magnesium glycinate and a consistent sleep routine. Avoid stimulants late in the day.'
-    }
-    if (profile.includes('energy') || profile.includes('fatigue')) {
-      return 'Consider checking iron + B12 status with your clinician. Gentle B-complex and hydration may help.'
-    }
-    if (profile.includes('stress') || profile.includes('anxiety')) {
-      return 'Consider magnesium + mindfulness routines. Talk to a clinician before adding adaptogens.'
-    }
-    return 'Start with foundational support: vitamin D3 (if deficient), omega-3, and magnesium as tolerated.'
-  }, [userProfile.symptoms])
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+  const symptomList = useMemo(() => toList(symptomsInput), [symptomsInput])
 
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+    const loadProducts = async () => {
+      try {
+        const response = await fetch(`${apiBase}/products?limit=50`)
+        if (!response.ok) throw new Error(`http_${response.status}`)
+        const payload = await response.json()
+        if (payload.error) throw new Error(payload.error)
+        const items = payload.items || []
+        const mapped = items.map((item) => ({
+          name: item.name || item.product_name || item.generic_name || item.brand_name || 'Unknown',
+        }))
+        setProductOptions(mapped.length ? mapped : MOCK_PRODUCTS)
+        setMedicationSelection(mapped[0]?.name || '')
+        setSupplementSelection(mapped[0]?.name || '')
+        setUsingMock(false)
+      } catch (err) {
+        setProductOptions(MOCK_PRODUCTS)
+        setMedicationSelection(MOCK_PRODUCTS[0]?.name || '')
+        setSupplementSelection(MOCK_PRODUCTS[0]?.name || '')
+        setUsingMock(true)
+      }
+    }
 
-  const addMessage = (role, content) => {
-    setMessages((prev) => [
-      ...prev,
-      { id: prev.length + 1, role, content },
-    ])
+    loadProducts()
+  }, [apiBase])
+
+  const addItem = (value, list, setList) => {
+    const trimmed = value.trim()
+    if (!trimmed) return
+    if (list.includes(trimmed)) return
+    setList([...list, trimmed])
   }
 
-  const handleSendMessage = async (e) => {
-    e.preventDefault()
-    if (!input.trim()) return
+  const removeItem = (value, list, setList) => {
+    setList(list.filter((item) => item !== value))
+  }
 
-    const userMessage = input.trim()
-    addMessage('user', userMessage)
-    setInput('')
+  const handleSubmit = async (event) => {
+    event.preventDefault()
     setLoading(true)
     setError(null)
+    setResult(null)
 
     try {
-      // Route to different conversation phases
-      let nextPhase = conversationPhase
-      let assistantResponse = ''
+      const response = await fetch(`${apiBase}/recommendations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symptoms: symptomList,
+          medications,
+          supplements,
+          medicalConsiderations,
+          preferences,
+        }),
+      })
 
-      if (conversationPhase === 'symptoms') {
-        // Parse symptoms and move to medical history
-        setUserProfile((prev) => ({
-          ...prev,
-          symptoms: [userMessage],
-        }))
-        nextPhase = 'history'
-        assistantResponse =
-          "Got it! I've noted your symptoms. Now, do you have any relevant medical conditions or diagnoses we should consider? (e.g., hypertension, diabetes, pregnancy, kidney issues, or type 'none' if not applicable)"
-      } else if (conversationPhase === 'history') {
-        // Parse medical history and move to current medications
-        setUserProfile((prev) => ({
-          ...prev,
-          medicalHistory: userMessage.toLowerCase() === 'none' ? [] : [userMessage],
-        }))
-        nextPhase = 'current'
-        assistantResponse =
-          "Thank you. Are you currently taking any medications or supplements? Please list them separated by commas, or type 'none'."
-      } else if (conversationPhase === 'current') {
-        // Parse current meds/supplements and generate recommendations
-        const items =
-          userMessage.toLowerCase() === 'none'
-            ? []
-            : userMessage.split(',').map((item) => item.trim())
-
-        setUserProfile((prev) => ({
-          ...prev,
-          currentMedications: items,
-        }))
-        nextPhase = 'recommendations'
-
-        // Call API to generate recommendations
-        try {
-          const response = await fetch(`${apiBase}/recommendations`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              symptoms: userProfile.symptoms,
-              medicalHistory: userProfile.medicalHistory,
-              currentMedications: items,
-            }),
-          })
-
-          if (!response.ok) {
-            throw new Error(`http_${response.status}`)
-          }
-          const payload = await response.json()
-          if (payload.error) throw new Error(payload.error)
-
-          assistantResponse =
-            payload.recommendation || 'Unable to generate recommendations at this time.'
-          setUsingMock(false)
-        } catch (apiErr) {
-          assistantResponse = `${mockRecommendation} (Demo response)`
-          setUsingMock(true)
-        }
+      if (!response.ok) {
+        throw new Error(`http_${response.status}`)
       }
-
-      setConversationPhase(nextPhase)
-      addMessage('assistant', assistantResponse)
+      const payload = await response.json()
+      if (payload.error) throw new Error(payload.error)
+      setResult(payload)
+      setUsingMock(false)
     } catch (err) {
-      setError(`Error: ${err.message}`)
-      addMessage('assistant', `I encountered an error: ${err.message}. Please try again.`)
+      setResult(getLocalFallback(symptomList))
+      setUsingMock(true)
+      setError('Backend unavailable. Showing demo recommendations.')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleReset = () => {
-    setMessages([
-      {
-        id: 1,
-        role: 'assistant',
-        content:
-          "Hi! I'm your supplement recommendation assistant. To give you personalized suggestions, I'd like to know a bit about you. What brings you here today? (e.g., low energy, joint pain, sleep issues, general wellness)",
-      },
-    ])
-    setConversationPhase('symptoms')
-    setUserProfile({
-      symptoms: [],
-      medicalHistory: [],
-      currentSupplements: [],
-      currentMedications: [],
-    })
-    setError(null)
-  }
-
   return (
     <section className="page">
-      <div className="page-head">
-        <div>
-          <h2>Recommendations</h2>
-          <p>Get personalized supplement suggestions through an interactive chat.</p>
-        </div>
-        <p className="disclaimer">
-          ⚠️ <strong>Important:</strong> These recommendations are AI-generated for informational purposes only.
-          Always consult with a healthcare provider before starting new supplements or medications.
-        </p>
+      {/* Header */}
+      <div className="rec-header">
+        <h2>Recommendations</h2>
+        <p className="lead">Educational options for common health concerns.</p>
       </div>
 
+      {/* Disclaimer bar */}
+      <div className="rec-disclaimer-bar">
+        <span className="disc-icon" aria-hidden="true">&#9888;</span>
+        <span>{DISCLAIMER}</span>
+      </div>
+
+      {/* Mock banner */}
       {usingMock && (
-        <div className="callout" style={{ marginBottom: '1rem' }}>
-          Using local demo recommendations. Connect the backend for live results.
+        <div className="rec-mock-banner">
+          <span aria-hidden="true">&#9881;</span>
+          Using local demo data. Connect the backend for live results.
         </div>
       )}
 
-      <div className="recommendation-container" style={styles.container}>
-        {/* Messages area */}
-        <div style={styles.messagesArea}>
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              style={{
-                ...styles.message,
-                ...(msg.role === 'user'
-                  ? styles.userMessage
-                  : styles.assistantMessage),
-              }}
-            >
-              <div style={{
-                ...styles.messageBubble,
-                ...(msg.role === 'user'
-                  ? styles.userBubble
-                  : styles.assistantBubble)
-              }}>
-                {msg.content}
-              </div>
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="rec-form">
+        {/* 1 — Symptoms */}
+        <div className="rec-section">
+          <div className="rec-section-head">
+            <span className="rec-step-num">1</span>
+            <div className="rec-section-title">
+              <h3>Symptoms</h3>
             </div>
-          ))}
-          {loading && (
-            <div style={{ ...styles.message, ...styles.assistantMessage }}>
-              <div style={styles.messageBubble}>Generating recommendations...</div>
+          </div>
+          <input
+            className="rec-add-row"
+            style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius)', border: '1px solid rgba(31,47,85,0.16)', font: 'inherit', fontSize: '0.9rem' }}
+            value={symptomsInput}
+            onChange={(event) => setSymptomsInput(event.target.value)}
+            placeholder="e.g. headache, poor sleep, acid reflux"
+          />
+          {symptomList.length > 0 && (
+            <div className="symptom-preview">
+              {symptomList.map((s) => (
+                <span key={s} className="chip">{s}</span>
+              ))}
             </div>
           )}
-          <div ref={messagesEndRef} />
         </div>
 
-        {/* Input area */}
-        <div style={styles.inputArea}>
-          {error && (
-            <div style={styles.errorBox}>{error}</div>
+        {/* 2 — Medications & Supplements */}
+        <div className="rec-section">
+          <div className="rec-section-head">
+            <span className="rec-step-num">2</span>
+            <div className="rec-section-title">
+              <h3>Current medications &amp; supplements</h3>
+            </div>
+          </div>
+
+          <div className="grid-two">
+            {/* Medications sub-panel */}
+            <div className="rec-sub-panel">
+              <h4><span className="sub-icon" aria-hidden="true">&#128138;</span> Medications</h4>
+              <div className="rec-add-row">
+                <input
+                  value={medicationInput}
+                  onChange={(event) => setMedicationInput(event.target.value)}
+                  placeholder="Type a medication"
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      addItem(medicationInput, medications, setMedications)
+                      setMedicationInput('')
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn-add"
+                  onClick={() => {
+                    addItem(medicationInput, medications, setMedications)
+                    setMedicationInput('')
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+              <div className="rec-or">or pick from list</div>
+              <div className="rec-add-row">
+                <select
+                  value={medicationSelection}
+                  onChange={(event) => setMedicationSelection(event.target.value)}
+                >
+                  {productOptions.map((option) => (
+                    <option key={`med-${option.name}`} value={option.name}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn-add"
+                  onClick={() => addItem(medicationSelection, medications, setMedications)}
+                >
+                  Add
+                </button>
+              </div>
+              <ChipList items={medications} onRemove={(item) => removeItem(item, medications, setMedications)} />
+            </div>
+
+            {/* Supplements sub-panel */}
+            <div className="rec-sub-panel">
+              <h4><span className="sub-icon" aria-hidden="true">&#127807;</span> Supplements</h4>
+              <div className="rec-add-row">
+                <input
+                  value={supplementInput}
+                  onChange={(event) => setSupplementInput(event.target.value)}
+                  placeholder="Type a supplement"
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      addItem(supplementInput, supplements, setSupplements)
+                      setSupplementInput('')
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn-add"
+                  onClick={() => {
+                    addItem(supplementInput, supplements, setSupplements)
+                    setSupplementInput('')
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+              <div className="rec-or">or pick from list</div>
+              <div className="rec-add-row">
+                <select
+                  value={supplementSelection}
+                  onChange={(event) => setSupplementSelection(event.target.value)}
+                >
+                  {productOptions.map((option) => (
+                    <option key={`supp-${option.name}`} value={option.name}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn-add"
+                  onClick={() => addItem(supplementSelection, supplements, setSupplements)}
+                >
+                  Add
+                </button>
+              </div>
+              <ChipList items={supplements} onRemove={(item) => removeItem(item, supplements, setSupplements)} />
+            </div>
+          </div>
+        </div>
+
+        {/* 3 — Medical considerations */}
+        <div className="rec-section">
+          <div className="rec-section-head">
+            <span className="rec-step-num">3</span>
+            <div className="rec-section-title">
+              <h3>Medical considerations</h3>
+            </div>
+          </div>
+          <div className="rec-checks">
+            <label className="rec-check">
+              <input
+                type="checkbox"
+                checked={medicalConsiderations.pregnancy}
+                onChange={(event) =>
+                  setMedicalConsiderations((prev) => ({ ...prev, pregnancy: event.target.checked }))
+                }
+              />
+              <span>Pregnancy</span>
+            </label>
+            <label className="rec-check">
+              <input
+                type="checkbox"
+                checked={medicalConsiderations.allergies}
+                onChange={(event) =>
+                  setMedicalConsiderations((prev) => ({ ...prev, allergies: event.target.checked }))
+                }
+              />
+              <span>Allergies</span>
+            </label>
+            <label className="rec-check">
+              <input
+                type="checkbox"
+                checked={medicalConsiderations.kidneyLiverIssues}
+                onChange={(event) =>
+                  setMedicalConsiderations((prev) => ({ ...prev, kidneyLiverIssues: event.target.checked }))
+                }
+              />
+              <span>Kidney or liver issues</span>
+            </label>
+            <label className="rec-check">
+              <input
+                type="checkbox"
+                checked={medicalConsiderations.bloodPressureConcerns}
+                onChange={(event) =>
+                  setMedicalConsiderations((prev) => ({ ...prev, bloodPressureConcerns: event.target.checked }))
+                }
+              />
+              <span>Blood pressure concerns</span>
+            </label>
+          </div>
+        </div>
+
+        {/* 4 — Preferences */}
+        <div className="rec-section">
+          <div className="rec-section-head">
+            <span className="rec-step-num">4</span>
+            <div className="rec-section-title">
+              <h3>Preferences</h3>
+            </div>
+          </div>
+          <div className="rec-prefs">
+            <label className="field" style={{ marginBottom: 0 }}>
+              <span>Product type</span>
+              <select
+                value={preferences.preferenceType}
+                onChange={(event) =>
+                  setPreferences((prev) => ({ ...prev, preferenceType: event.target.value }))
+                }
+              >
+                <option value="no_preference">No preference</option>
+                <option value="prescription">Prescription</option>
+                <option value="otc">OTC</option>
+                <option value="supplement_only">Supplement-only</option>
+              </select>
+            </label>
+            <div className="rec-checks">
+              <label className="rec-check">
+                <input
+                  type="checkbox"
+                  checked={preferences.avoidDrowsiness}
+                  onChange={(event) =>
+                    setPreferences((prev) => ({ ...prev, avoidDrowsiness: event.target.checked }))
+                  }
+                />
+                <span>Avoid drowsiness</span>
+              </label>
+              <label className="rec-check">
+                <input
+                  type="checkbox"
+                  checked={preferences.avoidStimulants}
+                  onChange={(event) =>
+                    setPreferences((prev) => ({ ...prev, avoidStimulants: event.target.checked }))
+                  }
+                />
+                <span>Avoid stimulants</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="rec-error">
+            <span aria-hidden="true">&#9888;</span>
+            {error}
+          </div>
+        )}
+
+        {/* Submit */}
+        <div className="rec-submit">
+          <button type="submit" className="btn-submit" disabled={loading}>
+            {loading ? 'Generating...' : 'Get educational options'}
+          </button>
+        </div>
+      </form>
+
+      {/* Loading */}
+      {loading && (
+        <div className="rec-loading">
+          <div className="spinner" />
+          <p>Analyzing your profile and building recommendations...</p>
+        </div>
+      )}
+
+      {/* Results */}
+      {result && !loading && (
+        <div className="rec-results">
+          <div className="rec-results-head">
+            <h3>Results</h3>
+          </div>
+
+          {/* Warnings */}
+          {result.warnings?.length > 0 && (
+            <div className="rec-warnings">
+              <strong>Warnings</strong>
+              <ul>
+                {result.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </div>
           )}
 
-          {conversationPhase === 'recommendations' ? (
-            <div style={styles.completionBox}>
-              <p>✓ Recommendations generated!</p>
-              <button
-                onClick={handleReset}
-                style={styles.resetButton}
-              >
-                Start Over
-              </button>
+          {/* Blocked */}
+          {result.blocked ? (
+            <div className="rec-blocked">
+              <h4>High-risk profile detected</h4>
+              <p>
+                Because of the risks listed above, the system will not provide
+                recommendations. Please consult a licensed clinician or pharmacist.
+              </p>
             </div>
           ) : (
-            <form onSubmit={handleSendMessage} style={styles.form}>
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Type your response..."
-                disabled={loading}
-                style={styles.input}
-              />
-              <button
-                type="submit"
-                disabled={loading || !input.trim()}
-                style={styles.submitButton}
-              >
-                {loading ? '...' : 'Send'}
-              </button>
-            </form>
+            <>
+              {/* Recommendation cards */}
+              <div className="rec-cards">
+                {(result.recommendations || []).map((rec) => (
+                  <RecCard key={`${rec.option}-${rec.category}`} rec={rec} />
+                ))}
+              </div>
+
+              {/* Next steps */}
+              {result.nextSteps?.length > 0 && (
+                <div className="rec-next-steps">
+                  <h4>Next steps</h4>
+                  <ol>
+                    {result.nextSteps.map((step) => (
+                      <li key={step}>{step}</li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+            </>
           )}
         </div>
-      </div>
+      )}
 
-      {/* Disclaimer panel */}
-      <div className="panel danger" style={{ marginTop: '2rem' }}>
-        <h3>⚠️ Medical Disclaimer</h3>
-        <p>
-          This chatbot does <strong>not</strong> provide medical advice. Recommendations are
-          generated for educational purposes only. They:
-        </p>
-        <ul className="bullets">
-          <li>Should not replace consultation with a licensed healthcare provider</li>
-          <li>May not account for drug interactions or personal allergies</li>
-          <li>Are not personalized medical treatment plans</li>
-          <li>Require professional validation before use</li>
-        </ul>
-        <p>
-          If you have a medical condition or take medications, consult your doctor or pharmacist
-          before using any new supplements.
-        </p>
+      {/* Bottom disclaimer */}
+      <div className="rec-bottom-disc">
+        <span className="disc-icon" aria-hidden="true">&#9888;</span>
+        <span>{DISCLAIMER}</span>
       </div>
     </section>
   )
 }
 
-const styles = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column',
-    height: '600px',
-    border: '1px solid #ddd',
-    borderRadius: '8px',
-    backgroundColor: '#fafafa',
-    marginTop: '1.5rem',
-  },
-  messagesArea: {
-    flex: 1,
-    overflowY: 'auto',
-    padding: '1.5rem',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1rem',
-  },
-  message: {
-    display: 'flex',
-    marginBottom: '0.5rem',
-  },
-  userMessage: {
-    justifyContent: 'flex-end',
-  },
-  assistantMessage: {
-    justifyContent: 'flex-start',
-  },
-  messageBubble: {
-    maxWidth: '70%',
-    padding: '0.75rem 1rem',
-    borderRadius: '8px',
-    lineHeight: '1.5',
-  },
-  userBubble: {
-    backgroundColor: '#007bff',
-    color: 'white',
-  },
-  assistantBubble: {
-    backgroundColor: '#e9ecef',
-    color: '#1c2333',
-  },
-  inputArea: {
-    padding: '1rem',
-    borderTop: '1px solid #ddd',
-    backgroundColor: '#fff',
-  },
-  form: {
-    display: 'flex',
-    gap: '0.5rem',
-  },
-  input: {
-    flex: 1,
-    padding: '0.75rem',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '1rem',
-    fontFamily: 'inherit',
-  },
-  submitButton: {
-    padding: '0.75rem 1.5rem',
-    backgroundColor: '#007bff',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontWeight: '500',
-  },
-  completionBox: {
-    textAlign: 'center',
-    padding: '1rem',
-  },
-  resetButton: {
-    marginTop: '1rem',
-    padding: '0.75rem 1.5rem',
-    backgroundColor: '#28a745',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontWeight: '500',
-  },
-  errorBox: {
-    padding: '1rem',
-    backgroundColor: '#f8d7da',
-    color: '#721c24',
-    borderRadius: '4px',
-    marginBottom: '1rem',
-  },
+/* ─── Sub-components ─── */
+
+function RecCard({ rec }) {
+  const catClass = categoryClass(rec.category)
+  const evidenceClass = `evidence-${toneClass(rec.evidenceStrength)}`
+  const riskClass = `risk-${toneClass(rec.interactionRisk)}`
+
+  return (
+    <div className="rec-card">
+      <div className="rec-card-top">
+        <h4>{rec.option}</h4>
+        <span className={`rec-card-category ${catClass}`}>{rec.category}</span>
+      </div>
+      <div className="rec-card-meta">
+        <span className={`rec-meta-badge ${evidenceClass}`}>
+          {rec.evidenceStrength} evidence
+        </span>
+        <span className={`rec-meta-badge ${riskClass}`}>
+          {rec.interactionRisk} risk
+        </span>
+      </div>
+      {rec.keyCautions && (
+        <p className="rec-card-caution-line">{rec.keyCautions}</p>
+      )}
+    </div>
+  )
+}
+
+function ChipList({ items, onRemove }) {
+  if (!items.length) return <p className="rec-empty">None added yet.</p>
+  return (
+    <div className="rec-chip-list">
+      {items.map((item) => (
+        <span key={item} className="rec-chip">
+          {item}
+          <button
+            type="button"
+            onClick={() => onRemove(item)}
+            aria-label={`Remove ${item}`}
+          >
+            &times;
+          </button>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+/* ─── Helpers ─── */
+
+function toList(value) {
+  return String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function toneClass(value) {
+  const normalized = String(value || '').toLowerCase()
+  if (normalized.includes('high')) return 'high'
+  if (normalized.includes('moderate') || normalized.includes('medium')) return 'moderate'
+  return 'low'
+}
+
+function categoryClass(category) {
+  const lower = String(category || '').toLowerCase()
+  if (lower.includes('supplement')) return 'supplement'
+  if (lower.includes('otc') || lower.includes('medication')) return 'otc'
+  if (lower.includes('lifestyle')) return 'lifestyle'
+  return ''
+}
+
+function getLocalFallback(symptoms) {
+  const usesSleep = symptoms.some((symptom) => symptom.toLowerCase().includes('sleep'))
+  return {
+    disclaimer: DISCLAIMER,
+    warnings: ['Local demo data only. Connect the backend for live results.'],
+    recommendations: [
+      {
+        option: usesSleep ? 'Magnesium glycinate' : 'Omega-3 fish oil',
+        category: 'Supplement',
+        whyDiscussed: 'Often discussed in general wellness conversations.',
+        keyCautions: 'May interact with certain medications. Ask a clinician.',
+        evidenceStrength: 'Moderate',
+        interactionRisk: 'Medium',
+        avoidIf: 'Significant kidney issues or on interacting medications.'
+      },
+      {
+        option: 'Sleep hygiene and routine changes',
+        category: 'Lifestyle',
+        whyDiscussed: 'Non-pharmacologic strategies are commonly recommended first.',
+        keyCautions: 'None specific; tailor to your clinician guidance.',
+        evidenceStrength: 'High',
+        interactionRisk: 'Low',
+        avoidIf: 'N/A'
+      }
+    ],
+    nextSteps: [
+      'Ask a clinician whether these options are suitable for your profile.',
+      'Bring a full med/supplement list to your next appointment.'
+    ]
+  }
 }
