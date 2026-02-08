@@ -1,0 +1,12 @@
+{
+  "name": "aimed",
+  "version": "1.0.0",
+  "description": "Medicine + supplement intelligence platform",
+  "private": true,
+  "scripts": {
+    "start": "cd server && npm install && npm start"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
