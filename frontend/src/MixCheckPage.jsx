@@ -197,7 +197,9 @@ export function MixCheckPage() {
         if (k2Response.ok) {
           const k2Payload = await k2Response.json()
           console.log('K2 Response:', k2Payload)
-          setInteractions(k2Payload.interactions || [])
+          console.log('K2 Interactions:', k2Payload.interactions)
+          console.log('K2 Predictions:', k2Payload.predictions)
+          setInteractions(k2Payload.interactions || k2Payload.predictions || [])
           setUsingMock(false)
           return
         } else {
