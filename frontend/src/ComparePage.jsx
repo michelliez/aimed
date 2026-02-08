@@ -154,6 +154,23 @@ export function ComparePage() {
     setCompareResults([])
 
     try {
+      // Use K2 API for all products to get consistent, complete information
+      const k2Response = await fetch(`${apiBase}/product-info`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products: selectedProducts }),
+      })
+      
+      if (k2Response.ok) {
+        const k2Payload = await k2Response.json()
+        if (k2Payload.products && k2Payload.products.length >= 2) {
+          setCompareResults([{ products: k2Payload.products }])
+          setUsingMock(false)
+          return
+        }
+      }
+
+      // Fallback to database
       const response = await fetch(`${apiBase}/compare`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -212,7 +229,7 @@ export function ComparePage() {
 
           {/* Custom input */}
           <label className="field">
-            <strong>Type a product</strong>
+            <strong>Custom Input</strong>
             <div className="field-row">
               <input
                 value={compareInput}
@@ -247,6 +264,19 @@ export function ComparePage() {
                 placeholder="Search products by name..."
                 autoComplete="off"
               />
+              <button 
+                type="button" 
+                onClick={() => {
+                  if (searchResults.length > 0) {
+                    addFromSearch(searchResults[0])
+                  } else if (searchQuery.trim()) {
+                    addCompareItem(searchQuery)
+                  }
+                }}
+                disabled={!searchQuery.trim()}
+              >
+                Add
+              </button>
               {showSearchResults && searchResults.length > 0 && (
                 <div
                   style={{
@@ -366,25 +396,11 @@ export function ComparePage() {
                       <td key={idx}>{p.type || 'N/A'}</td>
                     ))}
                   </tr>
-                  {/* Generic Name row */}
+                  {/* Dose/Strength row */}
                   <tr>
-                    <td><strong>Generic Name</strong></td>
+                    <td><strong>Typical Dose</strong></td>
                     {compareResults[0]?.products?.map((p, idx) => (
-                      <td key={idx}>{p.generic_name || 'N/A'}</td>
-                    ))}
-                  </tr>
-                  {/* Brand Names row */}
-                  <tr>
-                    <td><strong>Brand</strong></td>
-                    {compareResults[0]?.products?.map((p, idx) => (
-                      <td key={idx}>{p.brand || 'N/A'}</td>
-                    ))}
-                  </tr>
-                  {/* Strength row */}
-                  <tr>
-                    <td><strong>Strength</strong></td>
-                    {compareResults[0]?.products?.map((p, idx) => (
-                      <td key={idx}>{p.strength || 'N/A'}</td>
+                      <td key={idx}>{p.typical_dose || p.strength || 'N/A'}</td>
                     ))}
                   </tr>
                   {/* Form row */}
@@ -394,11 +410,43 @@ export function ComparePage() {
                       <td key={idx}>{p.form || 'N/A'}</td>
                     ))}
                   </tr>
-                  {/* Description row */}
+                  {/* Serving Size row */}
                   <tr>
-                    <td><strong>Description</strong></td>
+                    <td><strong>Serving Size</strong></td>
                     {compareResults[0]?.products?.map((p, idx) => (
-                      <td key={idx}>{p.description || 'N/A'}</td>
+                      <td key={idx}>{p.serving_size || 'N/A'}</td>
+                    ))}
+                  </tr>
+                  {/* Active Ingredients row */}
+                  <tr>
+                    <td><strong>Active Ingredients</strong></td>
+                    {compareResults[0]?.products?.map((p, idx) => (
+                      <td key={idx}>
+                        {(p.active_ingredients && Array.isArray(p.active_ingredients))
+                          ? p.active_ingredients.join(', ')
+                          : p.active_ingredients || 'N/A'}
+                      </td>
+                    ))}
+                  </tr>
+                  {/* Suggested Use row */}
+                  <tr>
+                    <td><strong>Suggested Use</strong></td>
+                    {compareResults[0]?.products?.map((p, idx) => (
+                      <td key={idx}>{p.suggested_use || 'N/A'}</td>
+                    ))}
+                  </tr>
+                  {/* Key Benefits row */}
+                  <tr>
+                    <td><strong>Key Benefits</strong></td>
+                    {compareResults[0]?.products?.map((p, idx) => (
+                      <td key={idx}>{p.key_benefits || 'N/A'}</td>
+                    ))}
+                  </tr>
+                  {/* Notes row */}
+                  <tr>
+                    <td><strong>Notes</strong></td>
+                    {compareResults[0]?.products?.map((p, idx) => (
+                      <td key={idx}>{p.notes || p.description || 'N/A'}</td>
                     ))}
                   </tr>
                   {/* Active Ingredients */}
