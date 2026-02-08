@@ -196,9 +196,12 @@ export function MixCheckPage() {
         
         if (k2Response.ok) {
           const k2Payload = await k2Response.json()
+          console.log('K2 Response:', k2Payload)
           setInteractions(k2Payload.interactions || [])
           setUsingMock(false)
           return
+        } else {
+          console.error('K2 API error:', k2Response.status, await k2Response.text())
         }
       }
       
@@ -365,7 +368,7 @@ export function MixCheckPage() {
             <li>K2 Think summarizes notes for quick readability.</li>
           </ul>
           <div className="callout">
-            <strong>Tip:</strong> Add at least 2 items to see interactions.
+            <strong>Tip:</strong> Add 2 items to see interactions.
           </div>
         </div>
       </div>
@@ -381,8 +384,10 @@ export function MixCheckPage() {
             </tr>
           </thead>
           <tbody>
-            {interactions.length ? (
-              interactions.map((row, idx) => (
+            {interactions.filter(i => i.severity !== 'none').length ? (
+              interactions
+                .filter(i => i.severity !== 'none')
+                .map((row, idx) => (
                 <tr key={idx}>
                   <td>{`${row.ingredient_a} + ${row.ingredient_b}`}</td>
                   <td>{row.interaction}</td>
@@ -432,11 +437,13 @@ export function MixCheckPage() {
         {checking ? 'Checking...' : 'Check Interactions'}
       </button>
 
-      {interactions.length > 0 && (
+      {interactions.filter(i => i.severity !== 'none').length > 0 && (
         <div className="interactions-results">
-          <h3>Interaction Results ({interactions.length})</h3>
+          <h3>Interaction Results ({interactions.filter(i => i.severity !== 'none').length})</h3>
           <div className="interactions-list">
-            {interactions.map((inter, idx) => (
+            {interactions
+              .filter(i => i.severity !== 'none')
+              .map((inter, idx) => (
               <div key={idx} className="interaction-card">
                 <div className="interaction-header">
                   <div>

@@ -248,18 +248,23 @@ app.post('/compare', async (request) => {
 })
 
 app.post('/predict-interactions', async (request, reply) => {
+  console.log('[/predict-interactions] Received request')
   const items = Array.isArray(request.body?.items) ? request.body.items : []
+  console.log('[/predict-interactions] Items:', items)
   if (items.length < 2) {
+    console.log('[/predict-interactions] Not enough items')
     return { interactions: [], error: 'at_least_two_items_required' }
   }
 
   if (!k2ApiKey) {
+    console.log('[/predict-interactions] K2 API key missing')
     return { interactions: [], error: 'k2_api_key_missing' }
   }
 
   try {
     const cleanItems = items.map(i => String(i).trim()).filter(Boolean)
     if (cleanItems.length < 2) {
+      console.log('[/predict-interactions] Not enough clean items')
       return { interactions: [], error: 'at_least_two_items_required' }
     }
 
@@ -289,11 +294,13 @@ app.post('/predict-interactions', async (request, reply) => {
 
     // Predict interactions between all pairs using K2
     const interactions = []
+    console.log(`[K2] Starting predictions for ${itemDetails.length} items`)
 
     for (let i = 0; i < itemDetails.length; i++) {
       for (let j = i + 1; j < itemDetails.length; j++) {
         const item1 = itemDetails[i]
         const item2 = itemDetails[j]
+        console.log(`[K2] Predicting interaction: ${item1.name} + ${item2.name}`)
 
         try {
           const prompt = `You are a pharmacist expert in drug interactions. Assess the interaction between these two products:
@@ -321,7 +328,7 @@ Be conservative. If uncertain, rate as mild.`
           const response = await axios.post(
             k2ApiUrl,
             {
-              model: 'gpt-4o-mini',
+              model: 'MBZUAI-IFM/K2-Think-v2',
               messages: [
                 {
                   role: 'system',
@@ -344,26 +351,71 @@ Be conservative. If uncertain, rate as mild.`
           )
 
           const content = response.data.choices?.[0]?.message?.content
-          if (!content) continue
+          if (!content) {
+            app.log.warn(`K2 no content for ${item1.name} + ${item2.name}`)
+            continue
+          }
 
-          // Parse JSON from response
-          const jsonMatch = content.match(/\{[\s\S]*\}/)
-          if (!jsonMatch) continue
+          // Parse JSON from response - K2 Think includes thinking process in <think> tags
+          // The actual JSON comes after the </think> tag
+          let jsonContent = content
+          const thinkEndIdx = content.indexOf('</think>')
+          if (thinkEndIdx !== -1) {
+            jsonContent = content.substring(thinkEndIdx + 8) // Skip past </think>
+          }
 
-          const prediction = JSON.parse(jsonMatch[0])
+          let prediction = null
+          try {
+            // Find the first { and match the closing }
+            const startIdx = jsonContent.indexOf('{')
+            if (startIdx === -1) {
+              app.log.warn(`K2 no JSON found for ${item1.name} + ${item2.name}`)
+              continue
+            }
+            
+            // Find the matching closing brace
+            let braceCount = 0
+            let endIdx = -1
+            for (let i = startIdx; i < jsonContent.length; i++) {
+              if (jsonContent[i] === '{') braceCount++
+              if (jsonContent[i] === '}') braceCount--
+              if (braceCount === 0) {
+                endIdx = i
+                break
+              }
+            }
+            
+            if (endIdx === -1) {
+              app.log.warn(`K2 unmatched braces for ${item1.name} + ${item2.name}`)
+              continue
+            }
+            
+            const jsonStr = jsonContent.substring(startIdx, endIdx + 1)
+            prediction = JSON.parse(jsonStr)
+          } catch (parseErr) {
+            app.log.warn(`K2 JSON parse error for ${item1.name} + ${item2.name}: ${parseErr.message}`)
+            continue
+          }
 
-          // Only include if there's an interaction
-          if (prediction.has_interaction && prediction.severity !== 'none') {
+          if (!prediction || prediction.severity === undefined) {
+            app.log.warn(`K2 no valid prediction for ${item1.name} + ${item2.name}`)
+            continue
+          }
+
+          app.log.info(`K2 prediction for ${item1.name} + ${item2.name}: ${JSON.stringify(prediction)}`)
+
+          // Include all predictions from K2 (even "none" severity, so user knows we checked)
+          if (prediction.severity) {
             interactions.push({
               ingredient_a: item1.name,
               ingredient_b: item2.name,
               severity: prediction.severity,
-              interaction: prediction.description,
+              interaction: prediction.description || 'No significant interaction expected',
               notes: prediction.notes || '',
             })
           }
         } catch (err) {
-          app.log.warn({ err }, `K2 prediction failed for ${item1.name} + ${item2.name}`)
+          app.log.error({ err }, `K2 prediction failed for ${item1.name} + ${item2.name}`)
         }
       }
     }
