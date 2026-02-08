@@ -53,7 +53,9 @@ export function ComparePage() {
   const [loading, setLoading] = useState(false)
   const [comparing, setComparing] = useState(false)
   const [compareInput, setCompareInput] = useState('')
-  const [compareSelection, setCompareSelection] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [showSearchResults, setShowSearchResults] = useState(false)
   const [error, setError] = useState(null)
   const [usingMock, setUsingMock] = useState(false)
 
@@ -80,18 +82,47 @@ export function ComparePage() {
       const items = payload.items || []
       if (!items.length) throw new Error('no_products')
       setProducts(items)
-      if (items.length > 0) {
-        setCompareSelection(items[0].name)
-      }
       setUsingMock(false)
     } catch (err) {
       setProducts(MOCK_PRODUCTS)
-      setCompareSelection(MOCK_PRODUCTS[0]?.product_name || '')
       setUsingMock(true)
       setError('Backend unavailable. Using local demo data.')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSearchChange = async (query) => {
+    setSearchQuery(query)
+    
+    if (!query.trim()) {
+      setSearchResults([])
+      setShowSearchResults(false)
+      return
+    }
+
+    try {
+      const response = await fetch(`${apiBase}/products?q=${encodeURIComponent(query)}&limit=20`)
+      if (!response.ok) throw new Error('search_failed')
+      const payload = await response.json()
+      const items = payload.items || []
+      setSearchResults(items)
+      setShowSearchResults(true)
+    } catch (err) {
+      // Fallback to local search
+      const matches = MOCK_PRODUCTS.filter(p =>
+        (p.product_name || p.name || '').toLowerCase().includes(query.toLowerCase())
+      ).slice(0, 20)
+      setSearchResults(matches)
+      setShowSearchResults(true)
+    }
+  }
+
+  const addFromSearch = (product) => {
+    const productName = product.name || product.product_name
+    addCompareItem(productName)
+    setSearchQuery('')
+    setShowSearchResults(false)
   }
 
   const addCompareItem = (value) => {
@@ -203,26 +234,73 @@ export function ComparePage() {
             </div>
           </label>
 
-          {/* Dropdown selection */}
+          {/* Search database */}
           <label className="field">
-            <strong>Or pick from database</strong>
-            <div className="field-row">
-              <select
-                value={compareSelection}
-                onChange={(e) => setCompareSelection(e.target.value)}
-              >
-                {products.map((product) => (
-                  <option key={product.id} value={product.name}>
-                    {product.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => addCompareItem(compareSelection)}
-              >
-                Add
-              </button>
+            <strong>Search database</strong>
+            <div className="field-row" style={{ position: 'relative' }}>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(event) => handleSearchChange(event.target.value)}
+                onFocus={() => searchQuery && setShowSearchResults(true)}
+                onBlur={() => setTimeout(() => setShowSearchResults(false), 100)}
+                placeholder="Search products by name..."
+                autoComplete="off"
+              />
+              {showSearchResults && searchResults.length > 0 && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    backgroundColor: 'white',
+                    border: '1px solid #ccc',
+                    borderTop: 'none',
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                    zIndex: 1000,
+                  }}
+                >
+                  {searchResults.map((product) => (
+                    <div
+                      key={product.id}
+                      onClick={() => addFromSearch(product)}
+                      style={{
+                        padding: '0.5rem',
+                        cursor: 'pointer',
+                        borderBottom: '1px solid #eee',
+                        fontSize: '0.9rem',
+                      }}
+                      onMouseEnter={(e) => (e.target.style.backgroundColor = '#f5f5f5')}
+                      onMouseLeave={(e) => (e.target.style.backgroundColor = 'white')}
+                    >
+                      {product.name || product.product_name}
+                      <span style={{ fontSize: '0.8rem', color: '#666', marginLeft: '0.5rem' }}>
+                        ({product.type || 'unknown'})
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {showSearchResults && searchQuery && searchResults.length === 0 && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    backgroundColor: 'white',
+                    border: '1px solid #ccc',
+                    borderTop: 'none',
+                    padding: '0.5rem',
+                    fontSize: '0.9rem',
+                    color: '#666',
+                  }}
+                >
+                  No products found. Use custom input instead.
+                </div>
+              )}
             </div>
           </label>
 
