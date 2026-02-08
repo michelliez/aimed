@@ -334,6 +334,50 @@ main {
   color: var(--navy);
 }
 
+.autocomplete {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.autocomplete-item {
+  text-align: left;
+  border: 1px solid rgba(31, 47, 85, 0.16);
+  background: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+}
+
+.autocomplete-item.active {
+  border-color: rgba(31, 47, 85, 0.4);
+  background: rgba(31, 47, 85, 0.05);
+}
+
+.results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.result-card {
+  border: 1px solid rgba(31, 47, 85, 0.12);
+  border-radius: var(--radius);
+  padding: 0.9rem;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.result-meta {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .chip span {
   opacity: 0.6;
 }
