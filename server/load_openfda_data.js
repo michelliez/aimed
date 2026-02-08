@@ -86,6 +86,9 @@ async function fetchDrugPage(skip = 0, limit = 100) {
 }
 
 function parseDrug(drug) {
+  // Extract from openfda nested object
+  const fda = drug.openfda || {};
+  
   // Extract active ingredients
   const ingredients = [];
   
@@ -98,36 +101,33 @@ function parseDrug(drug) {
     });
   }
   
-  // Get brand names
+  if (fda.substance_name && Array.isArray(fda.substance_name)) {
+    ingredients.push(...fda.substance_name.slice(0, 5));
+  }
+  
+  // Get brand names from openfda
   const brandNames = [];
-  if (drug.brand_name && Array.isArray(drug.brand_name)) {
-    brandNames.push(...drug.brand_name.slice(0, 5)); // Limit to first 5
+  if (fda.brand_name && Array.isArray(fda.brand_name)) {
+    brandNames.push(...fda.brand_name.slice(0, 5)); // Limit to first 5
   }
   
   // Get generic name
   let genericName = null;
-  if (drug.generic_name && Array.isArray(drug.generic_name)) {
-    genericName = drug.generic_name[0];
+  if (fda.generic_name && Array.isArray(fda.generic_name)) {
+    genericName = fda.generic_name[0];
   }
   
-  // Get dosage form
-  let dosageForm = null;
-  if (drug.dosage_form && Array.isArray(drug.dosage_form)) {
-    dosageForm = drug.dosage_form[0];
+  // Get manufacturer
+  let manufacturer = null;
+  if (fda.manufacturer_name && Array.isArray(fda.manufacturer_name)) {
+    manufacturer = fda.manufacturer_name[0];
   }
   
-  // Get strength
-  let strength = null;
-  if (drug.strength && Array.isArray(drug.strength)) {
-    strength = drug.strength[0];
-  }
-  
-  // Get product name (required)
-  const productName = drug.product_ndc && Array.isArray(drug.product_ndc) 
-    ? drug.product_ndc[0] 
-    : drug.brand_name && Array.isArray(drug.brand_name)
-    ? drug.brand_name[0]
-    : null;
+  // Get product name - prefer brand name, then generic
+  const productName = (brandNames.length > 0 ? brandNames[0] : null) ||
+                      (genericName) ||
+                      (fda.product_ndc && Array.isArray(fda.product_ndc) ? fda.product_ndc[0] : null) ||
+                      null;
   
   if (!productName) {
     return null; // Skip if no name
@@ -135,14 +135,14 @@ function parseDrug(drug) {
   
   return {
     name: productName,
-    type: 'drug',
-    dsld_id: drug.id || null,
+    type: 'medicine',
+    dsld_id: null,  // Don't store FDA NDC as dsld_id since it's a string
     generic_name: genericName,
     brand_names: brandNames.length > 0 ? brandNames : [],
-    dosage_form: dosageForm,
-    strength: strength,
+    dosage_form: null, // OpenFDA doesn't have standardized dosage form
+    strength: null,    // OpenFDA doesn't have standardized strength
     description: productName,
-    active_ingredients: ingredients.length > 0 ? ingredients : [],
+    active_ingredients: [...new Set(ingredients)].slice(0, 10), // Remove duplicates, limit to 10
     market_status: 'Active',
   };
 }
@@ -167,10 +167,19 @@ async function loadDrugs(supabase, drugs) {
   let loaded = 0;
   let skipped = 0;
   let errors = 0;
+  const seenNames = new Set();
+  let firstError = null;
   
   for (let i = 0; i < drugs.length; i++) {
     try {
-      // Skip if already exists
+      // Skip if we've already seen this name in this batch
+      if (seenNames.has(drugs[i].name)) {
+        skipped++;
+        continue;
+      }
+      seenNames.add(drugs[i].name);
+      
+      // Skip if already exists in database
       if (await drugExists(supabase, drugs[i].name)) {
         skipped++;
         continue;
@@ -183,6 +192,7 @@ async function loadDrugs(supabase, drugs) {
       
       if (error) {
         errors++;
+        if (!firstError) firstError = error;
         continue;
       }
       
@@ -193,13 +203,19 @@ async function loadDrugs(supabase, drugs) {
       }
     } catch (error) {
       errors++;
+      if (!firstError) firstError = error;
     }
   }
   
   console.log('');
   log.success(`Loaded: ${loaded} drugs`);
-  if (skipped > 0) log.warning(`Skipped: ${skipped} (already exist)`);
-  if (errors > 0) log.warning(`Errors: ${errors}`);
+  if (skipped > 0) log.warning(`Skipped: ${skipped} (duplicates)`);
+  if (errors > 0) {
+    log.warning(`Errors: ${errors}`);
+    if (firstError) {
+      log.info(`First error: ${firstError.message || JSON.stringify(firstError)}`);
+    }
+  }
   
   return loaded;
 }
@@ -243,8 +259,8 @@ async function main() {
       skip += 100;
       
       // Stop after reasonable amount (adjust as needed)
-      if (skip > 1000) { // Get first 1,000 drugs
-        log.warning('Stopping at 1,000 drugs (adjust limit in code)');
+      if (skip > 5000) { // Get first 5,000 drugs
+        log.warning('Stopping at 5,000 drugs (adjust limit in code)');
         break;
       }
     }
