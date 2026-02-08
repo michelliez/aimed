@@ -191,7 +191,9 @@ export function MixCheckPage() {
         const k2Response = await fetch(`${apiBase}/predict-interactions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items: selectedItems }),
+          body: JSON.stringify({ 
+            items: selectedItems.map(item => typeof item === 'string' ? item : item.name || item)
+          }),
         })
         
         if (k2Response.ok) {
@@ -215,9 +217,14 @@ export function MixCheckPage() {
         const b = normalize(row.ingredient_b)
         return normalizedSelected.includes(a) && normalizedSelected.includes(b)
       })
-      setInteractions(localMatches)
+      if (localMatches.length > 0) {
+        setInteractions(localMatches)
+        setError('Backend unavailable. Showing demo interactions.')
+      } else {
+        setInteractions([])
+        setError('Backend unavailable. No demo interactions for these substances.')
+      }
       setUsingMock(true)
-      setError('Backend unavailable. Showing demo interactions.')
     } finally {
       setChecking(false)
     }
