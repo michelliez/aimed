@@ -3,13 +3,11 @@ import './App.css'
 import { MixCheckPage } from './MixCheckPage'
 import { ComparePage } from './ComparePage'
 import { RecommendationPage } from './RecommendationPage'
-import { SymptomGuidePage } from './SymptomGuidePage'
 
 const TABS = [
   { id: 'mix', label: 'Mix', tagline: 'Check interactions' },
   { id: 'compare', label: 'Compare', tagline: 'Line up products' },
   { id: 'recommend', label: 'Recommendations', tagline: 'Guided suggestions' },
-  { id: 'symptoms', label: 'Symptom Guide', tagline: 'Educational only' },
 ]
 
 function App() {
@@ -25,8 +23,6 @@ function App() {
       setActiveTab('compare')
     } else if (query.includes('recommend')) {
       setActiveTab('recommend')
-    } else if (query.includes('symptom') || query.includes('diagnose')) {
-      setActiveTab('symptoms')
     } else {
       setActiveTab('mix')
     }
@@ -125,7 +121,6 @@ function App() {
 
         {activeTab === 'recommend' && <RecommendationPage />}
 
-        {activeTab === 'symptoms' && <SymptomGuidePage />}
       </main>
 
       <footer className="footer">
