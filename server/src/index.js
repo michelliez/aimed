@@ -12,6 +12,12 @@ await app.register(cors, {
   origin: true,
 })
 
+// Error handler
+app.setErrorHandler((error, request, reply) => {
+  app.log.error(error)
+  reply.code(500).send({ error: 'internal_server_error' })
+})
+
 // Supabase client
 const supabase = createClient(
   process.env.SUPABASE_URL,
