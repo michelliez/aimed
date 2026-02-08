@@ -50,7 +50,9 @@ export function MixCheckPage() {
   const [loading, setLoading] = useState(false)
   const [checking, setChecking] = useState(false)
   const [mixInput, setMixInput] = useState('')
-  const [mixSelection, setMixSelection] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [showSearchResults, setShowSearchResults] = useState(false)
   const [error, setError] = useState(null)
   const [usingMock, setUsingMock] = useState(false)
   const [hasChecked, setHasChecked] = useState(false)
@@ -87,18 +89,47 @@ export function MixCheckPage() {
         throw new Error('no_products')
       }
       setProducts(items)
-      if (items.length > 0) {
-        setMixSelection(items[0].name)
-      }
       setUsingMock(false)
     } catch (err) {
       setProducts(MOCK_PRODUCTS)
-      setMixSelection(MOCK_PRODUCTS[0]?.product_name || '')
       setUsingMock(true)
       setError('Backend unavailable. Using local demo data.')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSearchChange = async (query) => {
+    setSearchQuery(query)
+    
+    if (!query.trim()) {
+      setSearchResults([])
+      setShowSearchResults(false)
+      return
+    }
+
+    try {
+      const response = await fetch(`${apiBase}/products?q=${encodeURIComponent(query)}&limit=20`)
+      if (!response.ok) throw new Error('search_failed')
+      const payload = await response.json()
+      const items = payload.items || []
+      setSearchResults(items)
+      setShowSearchResults(true)
+    } catch (err) {
+      // Fallback to local search
+      const matches = MOCK_PRODUCTS.filter(p =>
+        (p.product_name || p.name || '').toLowerCase().includes(query.toLowerCase())
+      ).slice(0, 20)
+      setSearchResults(matches)
+      setShowSearchResults(true)
+    }
+  }
+
+  const addFromSearch = (product) => {
+    const productName = product.name || product.product_name
+    addMixItem(productName)
+    setSearchQuery('')
+    setShowSearchResults(false)
   }
 
   const addMixItem = (value) => {
@@ -143,6 +174,7 @@ export function MixCheckPage() {
     setHasChecked(true)
 
     try {
+      // First try the database endpoint
       const response = await fetch(`${apiBase}/mix`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -153,6 +185,23 @@ export function MixCheckPage() {
       }
       const payload = await response.json()
       if (payload.error) throw new Error(payload.error)
+      
+      // If no interactions found in database, try K2 prediction
+      if (!payload.interactions || payload.interactions.length === 0) {
+        const k2Response = await fetch(`${apiBase}/predict-interactions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: selectedItems }),
+        })
+        
+        if (k2Response.ok) {
+          const k2Payload = await k2Response.json()
+          setInteractions(k2Payload.interactions || [])
+          setUsingMock(false)
+          return
+        }
+      }
+      
       setInteractions(payload.interactions || [])
       setUsingMock(false)
     } catch (err) {
@@ -223,21 +272,71 @@ export function MixCheckPage() {
             </div>
           </label>
           <label className="field">
-            Choose from list
-            <div className="field-row">
-              <select
-                value={mixSelection}
-                onChange={(event) => setMixSelection(event.target.value)}
-              >
-                {products.map((item) => (
-                  <option key={item.id} value={item.name}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-              <button type="button" onClick={() => addMixItem(mixSelection)}>
-                Add
-              </button>
+            Search database
+            <div className="field-row" style={{ position: 'relative' }}>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(event) => handleSearchChange(event.target.value)}
+                onFocus={() => searchQuery && setShowSearchResults(true)}
+                onBlur={() => setTimeout(() => setShowSearchResults(false), 100)}
+                placeholder="Search products by name..."
+                autoComplete="off"
+              />
+              {showSearchResults && searchResults.length > 0 && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    backgroundColor: 'white',
+                    border: '1px solid #ccc',
+                    borderTop: 'none',
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                    zIndex: 1000,
+                  }}
+                >
+                  {searchResults.map((product) => (
+                    <div
+                      key={product.id}
+                      onClick={() => addFromSearch(product)}
+                      style={{
+                        padding: '0.5rem',
+                        cursor: 'pointer',
+                        borderBottom: '1px solid #eee',
+                        fontSize: '0.9rem',
+                      }}
+                      onMouseEnter={(e) => (e.target.style.backgroundColor = '#f5f5f5')}
+                      onMouseLeave={(e) => (e.target.style.backgroundColor = 'white')}
+                    >
+                      {product.name || product.product_name}
+                      <span style={{ fontSize: '0.8rem', color: '#666', marginLeft: '0.5rem' }}>
+                        ({product.type || 'unknown'})
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {showSearchResults && searchQuery && searchResults.length === 0 && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    backgroundColor: 'white',
+                    border: '1px solid #ccc',
+                    borderTop: 'none',
+                    padding: '0.5rem',
+                    fontSize: '0.9rem',
+                    color: '#666',
+                  }}
+                >
+                  No products found. Use custom input instead.
+                </div>
+              )}
             </div>
           </label>
           <div className="chip-group">

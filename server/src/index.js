@@ -1,183 +1,343 @@
 import dotenv from 'dotenv'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
-import pg from 'pg'
+import axios from 'axios'
+import { createClient } from '@supabase/supabase-js'
 
 dotenv.config()
 
-const { Client } = pg
 const app = Fastify({ logger: true })
 
 await app.register(cors, {
   origin: true,
 })
 
-const connectionString = process.env.DATABASE_URL
+// Supabase client
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+)
+
 const k2ApiUrl = process.env.K2_API_URL || 'https://api.k2think.ai/v1/chat/completions'
 const k2ApiKey = process.env.K2_API_KEY
-let client = null
-let dbError = null
-
-const connectDb = async () => {
-  if (!connectionString) {
-    dbError = new Error('Missing DATABASE_URL in environment.')
-    return
-  }
-  try {
-    client = new Client({ connectionString })
-    await client.connect()
-    dbError = null
-  } catch (error) {
-    dbError = error
-    app.log.error({ err: error }, 'Failed to connect to database.')
-  }
-}
-
-await connectDb()
 
 app.get('/health', async () => {
-  return { ok: true, db: dbError ? 'down' : 'up' }
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('count')
+      .limit(1)
+
+    return { ok: true, db: error ? 'down' : 'up' }
+  } catch (err) {
+    return { ok: true, db: 'down' }
+  }
 })
 
 app.get('/products', async (request) => {
-  if (!client || dbError) {
-    return { items: [], error: 'database_unavailable' }
-  }
   const q = request.query.q?.trim()
   const limit = Math.min(Number(request.query.limit || 20), 100)
-  const params = []
-  let where = ''
-  if (q) {
-    params.push(`%${q}%`)
-    where = `WHERE name ILIKE $${params.length}`
+
+  try {
+    let query = supabase
+      .from('products')
+      .select('id, name, type, generic_name, brand_names')
+      .order('name')
+      .limit(limit)
+
+    if (q) {
+      query = query.ilike('name', `%${q}%`)
+    }
+
+    const { data, error } = await query
+
+    if (error) throw error
+
+    return { items: data || [] }
+  } catch (error) {
+    app.log.error({ err: error }, 'Products query failed')
+    return { items: [], error: 'database_unavailable' }
   }
-  const { rows } = await client.query(
-    `SELECT id, name, type, generic_name, brand_names
-     FROM products
-     ${where}
-     ORDER BY name
-     LIMIT ${limit}`,
-    params
-  )
-  return { items: rows }
 })
 
 app.get('/ingredients', async (request) => {
-  if (!client || dbError) {
-    return { items: [], error: 'database_unavailable' }
-  }
   const q = request.query.q?.trim()
   if (!q) {
     return { items: [] }
   }
-  const { rows } = await client.query(
-    `SELECT DISTINCT ingredient
-     FROM supplement_facts
-     WHERE ingredient ILIKE $1
-     ORDER BY ingredient
-     LIMIT 20`,
-    [`%${q}%`]
-  )
-  return { items: rows.map((row) => row.ingredient) }
+
+  try {
+    const { data, error } = await supabase
+      .from('supplement_facts')
+      .select('ingredient')
+      .ilike('ingredient', `%${q}%`)
+      .order('ingredient')
+      .limit(20)
+
+    if (error) throw error
+
+    const items = [...new Set(data.map(row => row.ingredient))]
+    return { items }
+  } catch (error) {
+    app.log.error({ err: error }, 'Ingredients query failed')
+    return { items: [], error: 'database_unavailable' }
+  }
 })
 
 app.post('/mix', async (request) => {
-  if (!client || dbError) {
-    return { interactions: [], resolved: [], error: 'database_unavailable' }
-  }
-
   const items = Array.isArray(request.body?.items) ? request.body.items : []
   if (!items.length) {
     return { interactions: [], resolved: [] }
   }
 
-  const resolved = []
-  const ingredientSet = new Set()
+  const cleanItems = items.map(i => String(i).trim()).filter(Boolean)
+  if (!cleanItems.length) {
+    return { interactions: [], resolved: [] }
+  }
 
-  for (const rawItem of items) {
-    const input = String(rawItem).trim()
-    if (!input) continue
+  try {
+    // Query products matching input items
+    const { data: productRows, error } = await supabase
+      .from('products')
+      .select('id, name, type, active_ingredients, generic_name')
+      .or(cleanItems.map(item => `name.ilike.${item}%`).join(','))
+      .order('name')
 
-    const { rows: productRows } = await client.query(
-      `SELECT id, name, type, active_ingredients, generic_name
-       FROM products
-       WHERE LOWER(name) ILIKE $1
-       ORDER BY name
-       LIMIT 1`,
-      [input.toLowerCase()]
-    )
+    if (error) throw error
 
-    if (productRows.length) {
-      const product = productRows[0]
-      const ingredients = product.active_ingredients || []
-      ingredients.forEach((ingredient) =>
-        ingredientSet.add(ingredient.toLowerCase())
-      )
-      resolved.push({
-        input,
-        type: 'product',
-        product,
-        ingredients,
-      })
-      continue
+    // Build product map
+    const productMap = new Map()
+    productRows.forEach(p => {
+      productMap.set(p.name.toLowerCase(), p)
+    })
+
+    const resolved = []
+    const ingredientSet = new Set()
+
+    for (const rawItem of items) {
+      const input = String(rawItem).trim()
+      if (!input) continue
+
+      const product = productMap.get(input.toLowerCase())
+
+      if (product) {
+        const ingredients = product.active_ingredients || []
+        ingredients.forEach((ingredient) =>
+          ingredientSet.add(ingredient.toLowerCase())
+        )
+        resolved.push({
+          input,
+          type: 'product',
+          product,
+          ingredients,
+        })
+        continue
+      }
+
+      // Treat as ingredient if not found
+      resolved.push({ input, type: 'ingredient', ingredient: input })
+      ingredientSet.add(input.toLowerCase())
     }
 
-    // Treat as ingredient if not found
-    resolved.push({ input, type: 'ingredient', ingredient: input })
-    ingredientSet.add(input.toLowerCase())
-  }
+    // Get product IDs for interaction check
+    const productIds = productRows.map(p => p.id)
 
-  const ingredients = Array.from(ingredientSet)
-  if (!ingredients.length) {
+    if (productIds.length >= 2) {
+      // Check for interactions
+      const { data: interactions, error: interError } = await supabase
+        .from('interactions')
+        .select(`
+          *,
+          product1:products!product_id_1(name, type),
+          product2:products!product_id_2(name, type)
+        `)
+        .in('product_id_1', productIds)
+        .in('product_id_2', productIds)
+
+      if (!interError && interactions?.length > 0) {
+        const formattedInteractions = interactions.map(inter => ({
+          ingredient_a: inter.product1.name,
+          ingredient_b: inter.product2.name,
+          severity: inter.severity,
+          interaction: inter.interaction_description,
+          notes: inter.notes
+        }))
+
+        return { interactions: formattedInteractions, resolved }
+      }
+    }
+
     return { interactions: [], resolved }
+  } catch (error) {
+    app.log.error({ err: error }, 'Mix query failed')
+    return { interactions: [], resolved: [], error: 'database_unavailable' }
   }
-
-  // Return empty interactions since we don't have interaction data yet
-  return { interactions: [], resolved }
 })
 
 app.post('/compare', async (request) => {
-  if (!client || dbError) {
-    return { comparison: [], error: 'database_unavailable' }
-  }
-
   const productNames = Array.isArray(request.body?.products) ? request.body.products : []
   if (productNames.length < 2) {
     return { comparison: [], error: 'at_least_two_products_required' }
   }
 
-  const productDetails = []
-
-  for (const productName of productNames) {
-    const trimmed = String(productName).trim()
-    if (!trimmed) continue
-
-    // Find product in database
-    const { rows: productRows } = await client.query(
-      `SELECT id, name, type, generic_name, brand_names, dosage_form, strength, description, active_ingredients
-       FROM products
-       WHERE LOWER(name) ILIKE $1
-       ORDER BY name
-       LIMIT 1`,
-      [trimmed.toLowerCase()]
-    )
-
-    if (productRows.length) {
-      const product = productRows[0]
-      productDetails.push({
-        name: product.name,
-        type: product.type,
-        generic_name: product.generic_name || 'N/A',
-        brand: Array.isArray(product.brand_names) ? product.brand_names.join(', ') : 'N/A',
-        form: product.dosage_form || 'N/A',
-        strength: product.strength || 'N/A',
-        description: product.description || 'N/A',
-        active_ingredients: product.active_ingredients || []
-      })
-    }
+  const cleanNames = productNames.map(p => String(p).trim()).filter(Boolean)
+  if (cleanNames.length < 2) {
+    return { comparison: [], error: 'at_least_two_products_required' }
   }
 
-  return { comparison: [{ products: productDetails }] }
+  try {
+    const { data: productRows, error } = await supabase
+      .from('products')
+      .select('id, name, type, generic_name, brand_names, dosage_form, strength, description, active_ingredients')
+      .or(cleanNames.map(name => `name.ilike.${name}%`).join(','))
+      .order('name')
+
+    if (error) throw error
+
+    const productDetails = productRows.map(product => ({
+      name: product.name,
+      type: product.type,
+      generic_name: product.generic_name || 'N/A',
+      brand: Array.isArray(product.brand_names) ? product.brand_names.join(', ') : 'N/A',
+      form: product.dosage_form || 'N/A',
+      strength: product.strength || 'N/A',
+      description: product.description || 'N/A',
+      active_ingredients: product.active_ingredients || []
+    }))
+
+    return { comparison: [{ products: productDetails }] }
+  } catch (error) {
+    app.log.error({ err: error }, 'Compare query failed')
+    return { comparison: [], error: 'database_unavailable' }
+  }
+})
+
+app.post('/predict-interactions', async (request, reply) => {
+  const items = Array.isArray(request.body?.items) ? request.body.items : []
+  if (items.length < 2) {
+    return { interactions: [], error: 'at_least_two_items_required' }
+  }
+
+  if (!k2ApiKey) {
+    return { interactions: [], error: 'k2_api_key_missing' }
+  }
+
+  try {
+    const cleanItems = items.map(i => String(i).trim()).filter(Boolean)
+    if (cleanItems.length < 2) {
+      return { interactions: [], error: 'at_least_two_items_required' }
+    }
+
+    // Get product details for items that exist in database
+    const { data: productRows } = await supabase
+      .from('products')
+      .select('id, name, type, generic_name, active_ingredients')
+      .or(cleanItems.map(item => `name.ilike.${item}%`).join(','))
+
+    const productMap = new Map()
+    if (productRows) {
+      productRows.forEach(p => {
+        productMap.set(p.name.toLowerCase(), p)
+      })
+    }
+
+    // Build item details (from DB or custom)
+    const itemDetails = cleanItems.map(input => {
+      const product = productMap.get(input.toLowerCase())
+      return {
+        name: input,
+        type: product?.type || 'unknown',
+        generic_name: product?.generic_name || input,
+        active_ingredients: product?.active_ingredients || [],
+      }
+    })
+
+    // Predict interactions between all pairs using K2
+    const interactions = []
+
+    for (let i = 0; i < itemDetails.length; i++) {
+      for (let j = i + 1; j < itemDetails.length; j++) {
+        const item1 = itemDetails[i]
+        const item2 = itemDetails[j]
+
+        try {
+          const prompt = `You are a pharmacist expert in drug interactions. Assess the interaction between these two products:
+
+Product 1: ${item1.name}
+Type: ${item1.type}
+Generic: ${item1.generic_name}
+${item1.active_ingredients.length > 0 ? `Active Ingredients: ${item1.active_ingredients.join(', ')}` : ''}
+
+Product 2: ${item2.name}
+Type: ${item2.type}
+Generic: ${item2.generic_name}
+${item2.active_ingredients.length > 0 ? `Active Ingredients: ${item2.active_ingredients.join(', ')}` : ''}
+
+Respond in JSON format ONLY:
+{
+  "has_interaction": boolean,
+  "severity": "none" | "mild" | "moderate" | "severe" | "contraindicated",
+  "description": "brief interaction description",
+  "notes": "brief notes or recommendations"
+}
+
+Be conservative. If uncertain, rate as mild.`
+
+          const response = await axios.post(
+            k2ApiUrl,
+            {
+              model: 'gpt-4o-mini',
+              messages: [
+                {
+                  role: 'system',
+                  content: 'You are a pharmacist expert. Always respond in valid JSON format only.',
+                },
+                {
+                  role: 'user',
+                  content: prompt,
+                },
+              ],
+              temperature: 0.3,
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${k2ApiKey}`,
+                'Content-Type': 'application/json',
+              },
+              timeout: 30000,
+            }
+          )
+
+          const content = response.data.choices?.[0]?.message?.content
+          if (!content) continue
+
+          // Parse JSON from response
+          const jsonMatch = content.match(/\{[\s\S]*\}/)
+          if (!jsonMatch) continue
+
+          const prediction = JSON.parse(jsonMatch[0])
+
+          // Only include if there's an interaction
+          if (prediction.has_interaction && prediction.severity !== 'none') {
+            interactions.push({
+              ingredient_a: item1.name,
+              ingredient_b: item2.name,
+              severity: prediction.severity,
+              interaction: prediction.description,
+              notes: prediction.notes || '',
+            })
+          }
+        } catch (err) {
+          app.log.warn({ err }, `K2 prediction failed for ${item1.name} + ${item2.name}`)
+        }
+      }
+    }
+
+    return { interactions }
+  } catch (error) {
+    app.log.error({ err: error }, 'Predict interactions failed')
+    return { interactions: [], error: 'prediction_failed' }
+  }
 })
 
 app.post('/recommendations', async (request) => {
@@ -214,6 +374,43 @@ app.post('/recommendations', async (request) => {
     }
   }
 
+  // Check for interactions if medications provided
+  let interactions = []
+  if (cleanedMeds.length >= 2) {
+    try {
+      const { data: products } = await supabase
+        .from('products')
+        .select('id, name')
+        .or(cleanedMeds.map(med => `name.ilike.%${med}%`).join(','))
+
+      if (products?.length >= 2) {
+        const productIds = products.map(p => p.id)
+
+        const { data: interactionData } = await supabase
+          .from('interactions')
+          .select(`
+            *,
+            product1:products!product_id_1(name),
+            product2:products!product_id_2(name)
+          `)
+          .in('product_id_1', productIds)
+          .in('product_id_2', productIds)
+
+        if (interactionData?.length > 0) {
+          interactions = interactionData.map(inter => ({
+            substance_a: inter.product1.name,
+            substance_b: inter.product2.name,
+            interaction_type: inter.interaction_description,
+            severity: inter.severity,
+            recommendation: inter.notes
+          }))
+        }
+      }
+    } catch (err) {
+      app.log.error({ err }, 'Failed to check interactions')
+    }
+  }
+
   const prompt = buildRecommendationPrompt({
     symptoms: cleanedSymptoms,
     medications: cleanedMeds,
@@ -221,12 +418,14 @@ app.post('/recommendations', async (request) => {
     medicalConsiderations,
     preferences,
     safetyWarnings: safety.warnings,
+    interactions,
   })
 
   if (!k2ApiKey) {
     return getDefaultRecommendationPayload({
       symptoms: cleanedSymptoms,
       warnings: safety.warnings,
+      interactions,
     })
   }
 
@@ -260,6 +459,7 @@ app.post('/recommendations', async (request) => {
       return getDefaultRecommendationPayload({
         symptoms: cleanedSymptoms,
         warnings: safety.warnings,
+        interactions,
       })
     }
 
@@ -270,18 +470,21 @@ app.post('/recommendations', async (request) => {
       return getDefaultRecommendationPayload({
         symptoms: cleanedSymptoms,
         warnings: safety.warnings,
+        interactions,
       })
     }
 
     return {
       ...parsed,
       warnings: Array.from(new Set([...(parsed.warnings || []), ...safety.warnings])),
+      interactions,
     }
   } catch (error) {
     app.log.error({ err: error }, 'Recommendation request error')
     return getDefaultRecommendationPayload({
       symptoms: cleanedSymptoms,
       warnings: safety.warnings,
+      interactions,
     })
   }
 })
@@ -373,6 +576,7 @@ function buildRecommendationPrompt({
   medicalConsiderations,
   preferences,
   safetyWarnings,
+  interactions = [],
 }) {
   const info = [
     `Symptoms: ${symptoms.length ? symptoms.join(', ') : 'None provided'}`,
@@ -383,7 +587,15 @@ function buildRecommendationPrompt({
     `Safety notes: ${safetyWarnings.length ? safetyWarnings.join(' | ') : 'None'}`,
   ].join('\n')
 
-  return `Use the profile below to generate educational options.\n\n${info}\n\nRules:\n- Provide educational options only (no prescriptions, no dosing).\n- Do not diagnose or claim "best" treatment.\n- Include evidence strength and interaction risk for each option.\n- Highlight who should avoid it and key cautions.\n- Add personalized warnings based on the profile.\n- Provide next-step questions for a clinician/pharmacist.\n\nReturn ONLY valid JSON with this shape:\n{\n  "disclaimer": string,\n  "warnings": string[],\n  "recommendations": [\n    {\n      "option": string,\n      "category": "Supplement"|"OTC medication"|"Lifestyle"|"Prescription"|"Other",\n      "whyDiscussed": string,\n      "keyCautions": string,\n      "evidenceStrength": "High"|"Moderate"|"Limited",\n      "interactionRisk": "Low"|"Medium"|"High",\n      "avoidIf": string\n    }\n  ],\n  "nextSteps": string[]\n}`
+  let interactionInfo = ''
+  if (interactions.length > 0) {
+    interactionInfo = `\n\nIMPORTANT: The following drug interactions were detected in the database:\n`
+    interactions.forEach(i => {
+      interactionInfo += `- ${i.substance_a} + ${i.substance_b} (${i.severity}): ${i.interaction_type}\n`
+    })
+  }
+
+  return `Use the profile below to generate educational options.\n\n${info}${interactionInfo}\n\nRules:\n- Provide educational options only (no prescriptions, no dosing).\n- Do not diagnose or claim "best" treatment.\n- Include evidence strength and interaction risk for each option.\n- Highlight who should avoid it and key cautions.\n- Add personalized warnings based on the profile.\n- Provide next-step questions for a clinician/pharmacist.\n\nReturn ONLY valid JSON with this shape:\n{\n  "disclaimer": string,\n  "warnings": string[],\n  "recommendations": [\n    {\n      "option": string,\n      "category": "Supplement"|"OTC medication"|"Lifestyle"|"Prescription"|"Other",\n      "whyDiscussed": string,\n      "keyCautions": string,\n      "evidenceStrength": "High"|"Moderate"|"Limited",\n      "interactionRisk": "Low"|"Medium"|"High",\n      "avoidIf": string\n    }\n  ],\n  "nextSteps": string[]\n}`
 }
 
 function formatConsiderations(considerations = {}) {
@@ -437,10 +649,11 @@ function parseK2Json(raw) {
   }
 }
 
-function getDefaultRecommendationPayload({ symptoms, warnings }) {
+function getDefaultRecommendationPayload({ symptoms, warnings, interactions = [] }) {
   return {
-    disclaimer: '🚨 Not medical advice. This tool provides educational information only and cannot diagnose, treat, or recommend specific medications. Always consult a licensed healthcare professional.',
+    disclaimer: 'Not medical advice. This tool provides educational information only and cannot diagnose, treat, or recommend specific medications. Always consult a licensed healthcare professional.',
     warnings,
+    interactions,
     recommendations: [
       {
         option: 'Magnesium glycinate',
@@ -513,5 +726,5 @@ app.post('/k2/chat', async (request, reply) => {
   }
 })
 
-const port = Number(process.env.PORT || 5000)
+const port = Number(process.env.PORT || 9000)
 app.listen({ port, host: '0.0.0.0' })

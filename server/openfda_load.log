@@ -48,9 +48,19 @@
 [33m⚠[0m Stopping at 1,000 drugs (adjust limit in code)
 
 [1m[36m============================================================[0m
-[1m                      Loading 0 Drugs[0m
+[1m                     Loading 421 Drugs[0m
 [1m[36m============================================================[0m
 
+[36mℹ[0m Progress: 50/421
+[36mℹ[0m Progress: 100/421
+[36mℹ[0m Progress: 150/421
+[36mℹ[0m Progress: 200/421
+[36mℹ[0m Progress: 300/421
+[36mℹ[0m Progress: 350/421
+[36mℹ[0m Progress: 400/421
 
-[32m✓[0m Loaded: 0 drugs
-[32m✓[0m ✓ Complete! Loaded 0 drugs into database
+[32m✓[0m Loaded: 369 drugs
+[33m⚠[0m Skipped: 49 (duplicates)
+[33m⚠[0m Errors: 3
+[36mℹ[0m First error: value too long for type character varying(255)
+[32m✓[0m ✓ Complete! Loaded 369 drugs into database

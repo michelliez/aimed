@@ -1,0 +1,204 @@
+
+[1m[36m============================================================[0m
+[1m                 AIMED - Load OpenFDA Drugs[0m
+[1m[36m============================================================[0m
+
+[36mℹ[0m Validating configuration...
+[32m✓[0m Configuration valid
+[36mℹ[0m Connecting to Supabase...
+[32m✓[0m Connected to Supabase
+
+[1m[36m============================================================[0m
+[1m              Fetching Drug Data from OpenFDA[0m
+[1m[36m============================================================[0m
+
+[36mℹ[0m Fetching drugs (skip: 0, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 100/254315
+[36mℹ[0m Fetching drugs (skip: 100, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 200/254315
+[36mℹ[0m Fetching drugs (skip: 200, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 300/254315
+[36mℹ[0m Fetching drugs (skip: 300, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 400/254315
+[36mℹ[0m Fetching drugs (skip: 400, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 500/254315
+[36mℹ[0m Fetching drugs (skip: 500, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 600/254315
+[36mℹ[0m Fetching drugs (skip: 600, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 700/254315
+[36mℹ[0m Fetching drugs (skip: 700, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 800/254315
+[36mℹ[0m Fetching drugs (skip: 800, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 900/254315
+[36mℹ[0m Fetching drugs (skip: 900, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 1000/254315
+[36mℹ[0m Fetching drugs (skip: 1000, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 1100/254315
+[36mℹ[0m Fetching drugs (skip: 1100, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 1200/254315
+[36mℹ[0m Fetching drugs (skip: 1200, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 1300/254315
+[36mℹ[0m Fetching drugs (skip: 1300, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 1400/254315
+[36mℹ[0m Fetching drugs (skip: 1400, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 1500/254315
+[36mℹ[0m Fetching drugs (skip: 1500, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 1600/254315
+[36mℹ[0m Fetching drugs (skip: 1600, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 1700/254315
+[36mℹ[0m Fetching drugs (skip: 1700, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 1800/254315
+[36mℹ[0m Fetching drugs (skip: 1800, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 1900/254315
+[36mℹ[0m Fetching drugs (skip: 1900, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 2000/254315
+[36mℹ[0m Fetching drugs (skip: 2000, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 2100/254315
+[36mℹ[0m Fetching drugs (skip: 2100, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 2200/254315
+[36mℹ[0m Fetching drugs (skip: 2200, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 2300/254315
+[36mℹ[0m Fetching drugs (skip: 2300, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 2400/254315
+[36mℹ[0m Fetching drugs (skip: 2400, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 2500/254315
+[36mℹ[0m Fetching drugs (skip: 2500, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 2600/254315
+[36mℹ[0m Fetching drugs (skip: 2600, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 2700/254315
+[36mℹ[0m Fetching drugs (skip: 2700, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 2800/254315
+[36mℹ[0m Fetching drugs (skip: 2800, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 2900/254315
+[36mℹ[0m Fetching drugs (skip: 2900, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 3000/254315
+[36mℹ[0m Fetching drugs (skip: 3000, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 3100/254315
+[36mℹ[0m Fetching drugs (skip: 3100, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 3200/254315
+[36mℹ[0m Fetching drugs (skip: 3200, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 3300/254315
+[36mℹ[0m Fetching drugs (skip: 3300, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 3400/254315
+[36mℹ[0m Fetching drugs (skip: 3400, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 3500/254315
+[36mℹ[0m Fetching drugs (skip: 3500, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 3600/254315
+[36mℹ[0m Fetching drugs (skip: 3600, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 3700/254315
+[36mℹ[0m Fetching drugs (skip: 3700, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 3800/254315
+[36mℹ[0m Fetching drugs (skip: 3800, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 3900/254315
+[36mℹ[0m Fetching drugs (skip: 3900, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 4000/254315
+[36mℹ[0m Fetching drugs (skip: 4000, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 4100/254315
+[36mℹ[0m Fetching drugs (skip: 4100, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 4200/254315
+[36mℹ[0m Fetching drugs (skip: 4200, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 4300/254315
+[36mℹ[0m Fetching drugs (skip: 4300, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 4400/254315
+[36mℹ[0m Fetching drugs (skip: 4400, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 4500/254315
+[36mℹ[0m Fetching drugs (skip: 4500, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 4600/254315
+[36mℹ[0m Fetching drugs (skip: 4600, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 4700/254315
+[36mℹ[0m Fetching drugs (skip: 4700, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 4800/254315
+[36mℹ[0m Fetching drugs (skip: 4800, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 4900/254315
+[36mℹ[0m Fetching drugs (skip: 4900, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 5000/254315
+[36mℹ[0m Fetching drugs (skip: 5000, limit: 100)...
+[32m✓[0m Fetched 100 drugs
+[36mℹ[0m Total fetched so far: 5100/254315
+[33m⚠[0m Stopping at 5,000 drugs (adjust limit in code)
+
+[1m[36m============================================================[0m
+[1m                     Loading 1955 Drugs[0m
+[1m[36m============================================================[0m
+
+[36mℹ[0m Progress: 450/1955
+[36mℹ[0m Progress: 500/1955
+[36mℹ[0m Progress: 550/1955
+[36mℹ[0m Progress: 600/1955
+[36mℹ[0m Progress: 650/1955
+[36mℹ[0m Progress: 700/1955
+[36mℹ[0m Progress: 750/1955
+[36mℹ[0m Progress: 800/1955
+[36mℹ[0m Progress: 850/1955
+[36mℹ[0m Progress: 900/1955
+[36mℹ[0m Progress: 950/1955
+[36mℹ[0m Progress: 1000/1955
+[36mℹ[0m Progress: 1150/1955
+[36mℹ[0m Progress: 1250/1955
+[36mℹ[0m Progress: 1300/1955
+[36mℹ[0m Progress: 1350/1955
+[36mℹ[0m Progress: 1400/1955
+[36mℹ[0m Progress: 1550/1955
+[36mℹ[0m Progress: 1600/1955
+[36mℹ[0m Progress: 1650/1955
+[36mℹ[0m Progress: 1700/1955
+[36mℹ[0m Progress: 1750/1955
+[36mℹ[0m Progress: 1850/1955
+[36mℹ[0m Progress: 1900/1955
+[36mℹ[0m Progress: 1950/1955
+
+[32m✓[0m Loaded: 1164 drugs
+[33m⚠[0m Skipped: 770 (duplicates)
+[33m⚠[0m Errors: 21
+[36mℹ[0m First error: value too long for type character varying(255)
+[32m✓[0m ✓ Complete! Loaded 1164 drugs into database

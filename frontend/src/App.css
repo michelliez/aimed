@@ -27,9 +27,9 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--teal);
-  border-bottom: 1px solid rgba(31, 47, 85, 0.28);
-  color: white;
+  background: #d7e7e5;
+  border-bottom: 1px solid rgba(31, 47, 85, 0.18);
+  color: var(--ink);
 }
 
 .brand {
@@ -44,8 +44,8 @@
   height: 42px;
   display: grid;
   place-items: center;
-  background: radial-gradient(circle at top left, var(--teal), var(--navy));
-  color: white;
+  background: var(--teal);
+  color: #ffffff;
   font-weight: 700;
   border-radius: 10px;
   font-family: 'Fraunces', serif;
@@ -60,7 +60,7 @@
 .brand-sub {
   margin: 0;
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(31, 47, 85, 0.7);
 }
 
 .tabs {
@@ -70,8 +70,8 @@
 }
 
 .tab {
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  background: transparent;
+  border: 1px solid rgba(31, 47, 85, 0.18);
+  background: rgba(255, 255, 255, 0.6);
   padding: 0.6rem 0.9rem;
   border-radius: var(--radius);
   display: flex;
@@ -79,7 +79,7 @@
   align-items: flex-start;
   transition: all 0.2s ease;
   min-width: 120px;
-  color: white;
+  color: var(--ink);
 }
 
 .tab small {
@@ -88,8 +88,8 @@
 }
 
 .tab.active {
-  border-color: rgba(255, 255, 255, 0.75);
-  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(31, 47, 85, 0.35);
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .tab:hover {
@@ -97,9 +97,9 @@
 }
 
 .cta {
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--navy);
   color: white;
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(31, 47, 85, 0.2);
   padding: 0.85rem 1.6rem;
   border-radius: var(--radius);
   font-weight: 600;
