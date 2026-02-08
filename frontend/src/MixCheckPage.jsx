@@ -286,6 +286,19 @@ export function MixCheckPage() {
                 placeholder="Search products by name..."
                 autoComplete="off"
               />
+              <button 
+                type="button" 
+                onClick={() => {
+                  if (searchResults.length > 0) {
+                    addFromSearch(searchResults[0])
+                  } else if (searchQuery.trim()) {
+                    addMixItem(searchQuery)
+                  }
+                }}
+                disabled={!searchQuery.trim()}
+              >
+                Add
+              </button>
               {showSearchResults && searchResults.length > 0 && (
                 <div
                   style={{

@@ -427,6 +427,126 @@ Be conservative. If uncertain, rate as mild.`
   }
 })
 
+app.post('/product-info', async (request) => {
+  const productNames = Array.isArray(request.body?.products) ? request.body.products : []
+  if (!productNames.length) {
+    return { products: [] }
+  }
+
+  if (!k2ApiKey) {
+    return { products: [], error: 'k2_api_key_missing' }
+  }
+
+  try {
+    const cleanNames = productNames.map(p => String(p).trim()).filter(Boolean)
+    if (!cleanNames.length) {
+      return { products: [] }
+    }
+
+    const productInfos = []
+
+    for (const productName of cleanNames) {
+      try {
+        const prompt = `You are a pharmaceutical expert. Provide detailed information about this product/supplement:
+
+Product: ${productName}
+
+Respond in JSON format ONLY with this structure:
+{
+  "name": "${productName}",
+  "type": "supplement" | "medication" | "herb" | "unknown",
+  "active_ingredients": ["ingredient1", "ingredient2"],
+  "typical_dose": "dose with units (e.g., 500mg)",
+  "form": "tablet, capsule, powder, liquid, etc.",
+  "serving_size": "e.g., 1 capsule, 2 tablets",
+  "suggested_use": "brief suggested usage instructions",
+  "key_benefits": "comma-separated list of primary benefits",
+  "notes": "brief safety/interaction notes"
+}
+
+Be concise. If unsure about specifics, use reasonable estimates based on common formulations.`
+
+        const response = await axios.post(
+          k2ApiUrl,
+          {
+            model: 'MBZUAI-IFM/K2-Think-v2',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a pharmaceutical expert. Always respond in valid JSON format only.',
+              },
+              {
+                role: 'user',
+                content: prompt,
+              },
+            ],
+            temperature: 0.3,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${k2ApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            timeout: 30000,
+          }
+        )
+
+        const content = response.data.choices?.[0]?.message?.content
+        if (!content) {
+          app.log.warn(`K2 no content for product: ${productName}`)
+          continue
+        }
+
+        // Parse JSON from response - K2 Think includes thinking process in <think> tags
+        let jsonContent = content
+        const thinkEndIdx = content.indexOf('</think>')
+        if (thinkEndIdx !== -1) {
+          jsonContent = content.substring(thinkEndIdx + 8) // Skip past </think>
+        }
+
+        // Parse JSON from response
+        let productInfo = null
+        try {
+          const startIdx = jsonContent.indexOf('{')
+          if (startIdx === -1) {
+            app.log.warn(`K2 no JSON found for ${productName}`)
+            continue
+          }
+          
+          let braceCount = 0
+          let endIdx = -1
+          for (let i = startIdx; i < jsonContent.length; i++) {
+            if (jsonContent[i] === '{') braceCount++
+            if (jsonContent[i] === '}') braceCount--
+            if (braceCount === 0) {
+              endIdx = i
+              break
+            }
+          }
+          
+          if (endIdx === -1) {
+            app.log.warn(`K2 unmatched braces for ${productName}`)
+            continue
+          }
+          
+          const jsonStr = jsonContent.substring(startIdx, endIdx + 1)
+          productInfo = JSON.parse(jsonStr)
+          productInfos.push(productInfo)
+        } catch (parseErr) {
+          app.log.warn(`K2 JSON parse error for ${productName}: ${parseErr.message}`)
+        }
+      } catch (err) {
+        app.log.error({ err }, `K2 product info failed for ${productName}`)
+      }
+    }
+
+    return { products: productInfos }
+  } catch (error) {
+    app.log.error({ err: error }, 'Product info failed')
+    return { products: [], error: 'product_info_failed' }
+  }
+})
+
 app.post('/recommendations', async (request) => {
   const {
     symptoms = [],
