@@ -1,6 +1,7 @@
 import dotenv from 'dotenv'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
+import axios from 'axios'
 import { createClient } from '@supabase/supabase-js'
 
 dotenv.config()
@@ -208,6 +209,134 @@ app.post('/compare', async (request) => {
   } catch (error) {
     app.log.error({ err: error }, 'Compare query failed')
     return { comparison: [], error: 'database_unavailable' }
+  }
+})
+
+app.post('/predict-interactions', async (request, reply) => {
+  const items = Array.isArray(request.body?.items) ? request.body.items : []
+  if (items.length < 2) {
+    return { interactions: [], error: 'at_least_two_items_required' }
+  }
+
+  if (!k2ApiKey) {
+    return { interactions: [], error: 'k2_api_key_missing' }
+  }
+
+  try {
+    const cleanItems = items.map(i => String(i).trim()).filter(Boolean)
+    if (cleanItems.length < 2) {
+      return { interactions: [], error: 'at_least_two_items_required' }
+    }
+
+    // Get product details for items that exist in database
+    const { data: productRows } = await supabase
+      .from('products')
+      .select('id, name, type, generic_name, active_ingredients')
+      .or(cleanItems.map(item => `name.ilike.${item}%`).join(','))
+
+    const productMap = new Map()
+    if (productRows) {
+      productRows.forEach(p => {
+        productMap.set(p.name.toLowerCase(), p)
+      })
+    }
+
+    // Build item details (from DB or custom)
+    const itemDetails = cleanItems.map(input => {
+      const product = productMap.get(input.toLowerCase())
+      return {
+        name: input,
+        type: product?.type || 'unknown',
+        generic_name: product?.generic_name || input,
+        active_ingredients: product?.active_ingredients || [],
+      }
+    })
+
+    // Predict interactions between all pairs using K2
+    const interactions = []
+
+    for (let i = 0; i < itemDetails.length; i++) {
+      for (let j = i + 1; j < itemDetails.length; j++) {
+        const item1 = itemDetails[i]
+        const item2 = itemDetails[j]
+
+        try {
+          const prompt = `You are a pharmacist expert in drug interactions. Assess the interaction between these two products:
+
+Product 1: ${item1.name}
+Type: ${item1.type}
+Generic: ${item1.generic_name}
+${item1.active_ingredients.length > 0 ? `Active Ingredients: ${item1.active_ingredients.join(', ')}` : ''}
+
+Product 2: ${item2.name}
+Type: ${item2.type}
+Generic: ${item2.generic_name}
+${item2.active_ingredients.length > 0 ? `Active Ingredients: ${item2.active_ingredients.join(', ')}` : ''}
+
+Respond in JSON format ONLY:
+{
+  "has_interaction": boolean,
+  "severity": "none" | "mild" | "moderate" | "severe" | "contraindicated",
+  "description": "brief interaction description",
+  "notes": "brief notes or recommendations"
+}
+
+Be conservative. If uncertain, rate as mild.`
+
+          const response = await axios.post(
+            k2ApiUrl,
+            {
+              model: 'gpt-4o-mini',
+              messages: [
+                {
+                  role: 'system',
+                  content: 'You are a pharmacist expert. Always respond in valid JSON format only.',
+                },
+                {
+                  role: 'user',
+                  content: prompt,
+                },
+              ],
+              temperature: 0.3,
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${k2ApiKey}`,
+                'Content-Type': 'application/json',
+              },
+              timeout: 30000,
+            }
+          )
+
+          const content = response.data.choices?.[0]?.message?.content
+          if (!content) continue
+
+          // Parse JSON from response
+          const jsonMatch = content.match(/\{[\s\S]*\}/)
+          if (!jsonMatch) continue
+
+          const prediction = JSON.parse(jsonMatch[0])
+
+          // Only include if there's an interaction
+          if (prediction.has_interaction && prediction.severity !== 'none') {
+            interactions.push({
+              ingredient_a: item1.name,
+              ingredient_b: item2.name,
+              severity: prediction.severity,
+              interaction: prediction.description,
+              notes: prediction.notes || '',
+            })
+          }
+        } catch (err) {
+          app.log.warn({ err }, `K2 prediction failed for ${item1.name} + ${item2.name}`)
+        }
+      }
+    }
+
+    return { interactions }
+  } catch (error) {
+    app.log.error({ err: error }, 'Predict interactions failed')
+    return { interactions: [], error: 'prediction_failed' }
   }
 })
 
