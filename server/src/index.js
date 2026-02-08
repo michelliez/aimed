@@ -6,7 +6,7 @@ import { createClient } from '@supabase/supabase-js'
 
 dotenv.config()
 
-const app = Fastify({ logger: true })
+const app = Fastify()
 
 await app.register(cors, {
   origin: true,
