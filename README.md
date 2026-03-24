@@ -1,16 +1,13 @@
-# React + Vite
-
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Inspiration
+Every day, millions of people take multiple medications and supplements, vitamins, prescriptions, over-the-counter drugs, etc, often without fully understanding how they interact with one another. While each product may be safe on its own, combining different substances can lead to reduced effectiveness, unexpected side effects, or even dangerous interactions. Unfortunately, reliable information about these interactions is scattered across medical papers, dense databases, and hard-to-navigate websites, making it inaccessible to most people.
+We created Aimed to bridge this gap.
+Aimed uses K2 Think and structured medical databases to make drug and supplement interactions easy to understand in one centralized place. By allowing users to compare medications, analyze potential interactions, and view clear recommendations, Aimed empowers individuals to make more informed decisions about what they put into their bodies. Our goal is not to replace healthcare professionals, but to provide a transparent, accessible starting point—helping users ask better questions, recognize potential risks, and approach their health with confidence.
+In a world where personalized health choices are becoming the norm, Aimed exists to make safety, clarity, and informed decision-making the standard, not the exception.
+## What it does
+There are 3 core components to Aimed: 
+1. Mix (Interaction Checker)
+The Mix feature allows users to select two substances, drugs or supplements, and check whether they are safe to take together. Using K2, a smart reasoning model, the system analyzes known interactions and flags whether the severity of the combination is none, mild, moderate, severe, or contraindicated. 
+2. Compare (Ingredient Analysis)
+The Compare feature, also powered by K2, lets users view two substances side by side, breaking down their ingredients and properties. This makes it easier to understand which ingredients overlap and the difference between two substances to make it easier to choose between similar supplements or medications.
+3. Recommendations (Guided Suggestions)
+The Recommendations feature is designed to give users guided, educational suggestions based on their individual context. Instead of generic advice, the users receive recommendations that are more relevant and safer based on their inputs. Users enter their symptoms and list any current medications and supplements, ensuring that recommendations account for what the user is already taking. The page includes medical considerations such as pregnancy, allergies, kidney or liver issues, and blood pressure concerns. Users can also set preferences, like avoiding drowsiness or stimulants, to suit their lifestyle. Once all inputs are provided, the system generates educational supplement options using K2 to evaluate symptoms, existing substances, and constraints together. The page clearly disclaims that it is not a medical professional and emphasizes that the information is for educational purposes only.
